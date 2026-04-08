@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Smart Factory Safety System — Dashboard. Real-time sensor monitoring, environmental conditions, and machine health.">
+    <title>Smart Factory Safety System — Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="forge.css">
+    <style>
+    .hud-strip{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:1.5rem;margin-bottom:2rem;flex-wrap:wrap;gap:1rem}
+    .hud-title h1{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.6rem;letter-spacing:.06em;color:var(--t1)}
+    .hud-title h1 span{color:var(--cyan)}
+    .cursor-blink{font-family:'Share Tech Mono',monospace;color:var(--cyan);animation:termBlink 1s step-end infinite;font-size:1.2rem}
+    .hud-stats{display:flex;gap:1rem;flex-wrap:wrap}
+    .stat-orb{display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;background:var(--abyss);border:1px solid var(--border);border-radius:6px;padding:12px 16px;min-width:80px}
+    .stat-orb.online{border-color:rgba(0,230,118,0.35)}
+    .stat-orb.alerts{border-color:var(--border-danger)}
+    .stat-orb.clock{border-color:var(--border-lit)}
+    .orb-count{font-family:'Share Tech Mono',monospace;font-size:.82rem;color:var(--t1)}
+    .orb-label{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:.62rem;letter-spacing:.12em;color:var(--t3);text-transform:uppercase}
+    .gauge-array{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1.25rem;margin-bottom:.5rem}
+    .gauge-shell{background:var(--abyss);border:1px solid var(--border);border-radius:4px;padding:1.25rem;position:relative;overflow:hidden;transition:border-color .3s,box-shadow .3s}
+    .gauge-shell:hover{border-color:var(--border-lit);box-shadow:0 0 0 1px var(--border-lit),0 8px 30px rgba(0,0,0,.5)}
+    .gauge-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
+    .gauge-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem;letter-spacing:.14em;color:var(--t2)}
+    .gauge-badge{border-radius:3px;padding:2px 8px;font-family:'Share Tech Mono',monospace;font-size:.65rem;font-weight:700}
+    .gauge-badge.safe{background:var(--safe-dim);color:var(--safe);border:1px solid rgba(0,230,118,.3)}
+    .gauge-badge.warning{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(255,234,0,.3)}
+    .gauge-badge.danger{background:var(--danger-dim);color:var(--danger);border:1px solid var(--border-danger)}
+    .gauge-badge.offline{background:rgba(255,255,255,0.05);color:var(--t3);border:1px solid var(--border)}
+    .gauge-svg{width:100%;max-width:200px;margin:0 auto;display:block}
+    .freshness-bar{position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--border)}
+    .freshness-fill{height:100%;width:0%;background:var(--cyan);transition:width linear 2s}
+    .mech-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:1.25rem}
+    .mech-panel{background:var(--abyss);border:1px solid var(--border);clip-path:polygon(16px 0%,100% 0%,100% 100%,0% 100%,0% 16px);overflow:hidden;transition:box-shadow .3s,border-color .3s;position:relative}
+    .mech-panel:hover{border-color:var(--border-lit);box-shadow:0 0 0 1px var(--border-lit),0 10px 36px rgba(0,0,0,.5)}
+    .mech-header{display:flex;align-items:center;gap:10px;padding:1rem 1.25rem;border-bottom:1px solid var(--border);background:var(--pit)}
+    .mech-status-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;position:relative}
+    .mech-status-dot.safe{background:var(--safe)}
+    .mech-status-dot.safe::after{content:''}
+    .mech-status-dot.danger{background:var(--danger)}
+    .mech-status-dot.warning{background:var(--warn)}
+    .mech-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.92rem;color:var(--t1)}
+    .mech-location{font-family:'Share Tech Mono',monospace;font-size:.65rem;color:var(--t3);letter-spacing:.08em}
+    .mech-body{display:flex;align-items:stretch;padding:1rem 0}
+    .mech-metric{flex:1;padding:0 1.25rem}
+    .mech-divider{width:1px;background:var(--border);flex-shrink:0}
+    .metric-label{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.65rem;letter-spacing:.14em;color:var(--t3);display:block;margin-bottom:4px}
+    .mini-spark{display:block;margin-bottom:4px}
+    .metric-val{font-family:'Share Tech Mono',monospace;font-size:1.2rem;color:var(--t1);display:block;margin-bottom:6px}
+    .metric-bar-track{height:3px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden}
+    .metric-bar-fill{height:100%;border-radius:999px;background:var(--safe);transition:width .7s cubic-bezier(.4,0,.2,1),background .4s}
+    .mech-health-stripe{width:4px;background:var(--safe);flex-shrink:0;align-self:stretch;transition:background .4s}
+    .sim-tag{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--amber);background:var(--amber-dim);border:1px solid var(--border-warn);border-radius:3px;padding:2px 8px;margin-left:auto}
+    .btn-reset{font-family:'Share Tech Mono',monospace;font-size:.68rem;background:transparent;border:1px solid var(--border-danger);color:var(--danger);border-radius:3px;padding:4px 10px;cursor:pointer;margin-left:auto}
+    .btn-reset:hover{background:var(--danger-dim)}
+    </style>
+</head>
+<body>
+    <canvas id="bg-canvas" style="position:fixed;inset:0;z-index:-2;pointer-events:none;opacity:0.38;"></canvas>
+    <div id="scanlines"></div>
+    <div id="alert-warning"></div>
+    <div id="alert-danger"></div>
+
+    <nav id="command-rail">
+        <div class="rail-logo">
+            <svg width="42" height="42" viewBox="0 0 42 42"><polygon points="21,3 38,12 38,30 21,39 4,30 4,12" fill="none" stroke="var(--cyan)" stroke-width="1.2" opacity="0.8" style="animation:railLogoRotate 14s linear infinite;transform-origin:21px 21px;"/><text x="21" y="25" text-anchor="middle" fill="var(--cyan)" font-family="Share Tech Mono" font-size="8">SF</text></svg>
+            <span class="rail-logo-sub">SYS//01</span>
+        </div>
+        <div class="rail-nav">
+            <a href="dashboard.html" class="rail-btn active" data-tip="Dashboard"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></a>
+            <a href="machines.html" class="rail-btn" data-tip="Machines"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></a>
+            <a href="graphs.html" class="rail-btn" data-tip="Graphs"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12 Q6 6 12 12 Q18 6 22 12"/><path d="M2 18 Q6 12 12 18 Q18 12 22 18"/></svg></a>
+            <a href="analytics.html" class="rail-btn" data-tip="Analytics"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="21"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg></a>
+            <a href="control.html" class="rail-btn" data-tip="Control"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a5 5 0 0 1 0 10"/><circle cx="12" cy="12" r="1.5"/><line x1="12" y1="13.5" x2="12" y2="22"/></svg></a>
+            <a href="alerts.html" class="rail-btn" data-tip="Alerts"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.3 3.7a2 2 0 0 1 3.4 0L21 18H3L10.3 3.7Z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg></a>
+        </div>
+        <div class="rail-bottom">
+            <div class="rail-avatar" id="user-avatar">??</div>
+            <button class="rail-logout" onclick="logout()" title="Logout"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="hud-strip">
+            <div class="hud-title"><h1>SMART FACTORY SAFETY SYSTEM<span> // </span>DASHBOARD</h1></div>
+            <div class="hud-stats">
+                <div class="stat-orb online"><span class="orb-count">● ONLINE</span><span class="orb-label">SYSTEM</span></div>
+                <div class="stat-orb clock"><span class="orb-count live-clock">--:--:--</span><span class="orb-label">TIME</span></div>
+                <div class="stat-orb"><span class="orb-count" id="machine-count">0</span><span class="orb-label">MACHINES</span></div>
+                <div class="stat-orb alerts" id="alert-orb"><span class="orb-count" id="alert-count">0</span><span class="orb-label">ALERTS</span></div>
+            </div>
+            <span class="sim-tag hidden" id="sim-tag">⚡ SIMULATION</span>
+            <button class="btn-reset hidden" id="btn-reset">RESET DATA</button>
+        </div>
+
+        <div class="section-divider"><span>ENVIRONMENT SENSORS</span><div class="div-line"></div></div>
+
+        <div class="gauge-array" id="gauge-array">
+            <div class="gauge-shell reveal" data-sensor="ambTemp">
+                <div class="gauge-label-row"><span class="gauge-name">AMB. TEMPERATURE</span><span class="gauge-badge" id="badge-ambTemp">OFFLINE</span></div>
+                <div style="text-align:center;padding:1.5rem 0">
+                    <span id="val-ambTemp" style="font-family:'Share Tech Mono',monospace;font-size:3.5rem;font-weight:700">--</span><span class="gauge-unit">°C</span>
+                </div>
+            </div>
+            <div class="gauge-shell reveal" data-sensor="gasLevel">
+                <div class="gauge-label-row"><span class="gauge-name">GAS LEVEL</span><span class="gauge-badge" id="badge-gasLevel">OFFLINE</span></div>
+                <div style="text-align:center;padding:1.5rem 0">
+                    <span id="val-gasLevel" style="font-family:'Share Tech Mono',monospace;font-size:3.5rem;font-weight:700">--</span><span class="gauge-unit">ppm</span>
+                </div>
+            </div>
+            <div class="gauge-shell reveal" data-sensor="fireDet">
+                <div class="gauge-label-row"><span class="gauge-name">FIRE STATUS</span><span class="gauge-badge" id="badge-fireDet">OFFLINE</span></div>
+                <div style="text-align:center;padding:1.5rem 0">
+                    <span id="val-fireDet" style="font-family:'Share Tech Mono',monospace;font-size:3rem;font-weight:700">--</span>
+                </div>
+            </div>
+            <div class="gauge-shell reveal" data-sensor="proximity">
+                <div class="gauge-label-row"><span class="gauge-name">PROXIMITY</span><span class="gauge-badge" id="badge-proximity">OFFLINE</span></div>
+                <div style="text-align:center;padding:1.5rem 0">
+                    <span id="val-proximity" style="font-family:'Share Tech Mono',monospace;font-size:3rem;font-weight:700">--</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-divider"><span>MACHINE OPERATIONS</span><div class="div-line"></div></div>
+        <div class="mech-grid" id="mech-grid"></div>
+    </main>
+
+    <script src="forge.js"></script>
+    <script>
+    const auth = getAuthInfo();
+    if (!auth) throw 'No auth';
+    const { user, isSim, userId, simParam } = auth;
+
+    if (isSim) { document.getElementById('sim-tag').classList.remove('hidden'); document.getElementById('btn-reset').classList.remove('hidden'); }
+    else {
+        const sysOrb = document.querySelector('.stat-orb.online');
+        if (sysOrb) {
+            sysOrb.classList.remove('online');
+            sysOrb.querySelector('.orb-count').textContent = '○ OFFLINE';
+            sysOrb.querySelector('.orb-count').style.color = 'var(--t3)';
+        }
+    }
+
+    document.getElementById('btn-reset').addEventListener('click', async () => {
+        if (!confirm('Reset all simulation data?')) return;
+        const btn = document.getElementById('btn-reset');
+        btn.textContent = 'RESETTING...';
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        try {
+            // Stop server-side simulation first
+            await fetch('/api/simulation/stop', { method:'POST' }).catch(() => {});
+            // Delete sim data from DB
+            const res = await fetch(`/api/simulation/reset?user_id=${userId}`, { method:'DELETE' });
+            const data = await res.json();
+            if (!data.success) { alert('Reset failed: ' + (data.error || 'Unknown error')); btn.textContent = 'RESET DATA'; btn.disabled = false; btn.style.opacity = '1'; return; }
+            
+            // Clear client-side SimEngine data immediately
+            SimEngine.alertLog = [];
+            SimEngine.actuatorLog = [];
+            SimEngine.sensors.ambTemp.value = 27.4;
+            SimEngine.sensors.gasLevel.value = 21.8;
+            SimEngine.sensors.fireDet.value = 0;
+            SimEngine.sensors.proximity.value = 0;
+            SimEngine.machines.forEach(m => { m.temp.value = 40; m.current.value = 7; });
+            
+            // Wait 500ms to ensure DB connections have fully flushed
+            await new Promise(resolve => setTimeout(resolve, 500));
+            // Re-enter simulation to recreate DB records
+            await fetch('/api/auth/simulation', { method:'POST' });
+            
+            // Force a hard reload from server
+            window.location.href = window.location.href.split('?')[0] + '?ts=' + Date.now();
+        } catch(err) {
+            alert('Reset failed: ' + err.message);
+            btn.textContent = 'RESET DATA';
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    });
+
+    const sparkData = {};
+
+    function updateGauge(key, s) {
+        const status = SimEngine.getStatus(s);
+        const badge = document.getElementById('badge-' + key);
+        const valEl = document.getElementById('val-' + key);
+        if (!badge) return;
+
+        const color = status === 'OFFLINE' ? 'var(--t3)' : status === 'DANGER' ? 'var(--danger)' : status === 'WARNING' ? 'var(--warn)' : 'var(--safe)';
+        
+        // Binary sensors
+        if (key === 'fireDet' || key === 'proximity') {
+            const isActive = s.value >= s.dangerAt;
+            const label = status === 'OFFLINE' ? '--' : isActive ? 'DETECTED' : 'CLEAR';
+            badge.className = 'gauge-badge ' + (status === 'OFFLINE' ? 'offline' : isActive ? 'danger' : 'safe');
+            badge.textContent = status === 'OFFLINE' ? 'OFFLINE' : label;
+            valEl.textContent = label;
+            valEl.style.color = color;
+            valEl.style.textShadow = status === 'OFFLINE' ? 'none' : `0 0 15px ${color}`;
+            return;
+        }
+
+        // Analog sensors
+        badge.className = 'gauge-badge ' + status.toLowerCase();
+        badge.textContent = status;
+
+        const displayVal = status === 'OFFLINE' ? '--' : s.value.toFixed(1);
+        valEl.textContent = displayVal;
+        valEl.style.color = color;
+        valEl.style.textShadow = status === 'OFFLINE' ? 'none' : `0 0 20px ${color}`;
+    }
+
+    function buildMachinePanel(m) {
+        return `<div class="mech-panel reveal" data-machine="${m.id}">
+            <div class="mech-header"><div class="mech-status-dot offline" id="mdot-${m.id}"></div><div><div class="mech-name">${m.name}</div><div class="mech-location">${m.location}</div></div></div>
+            <div class="mech-body">
+                <div class="mech-metric"><span class="metric-label">TEMP</span><svg class="mini-spark" id="spark-${m.id}-temp" width="80" height="24" viewBox="0 0 80 24"></svg><span class="metric-val" id="mval-${m.id}-temp">-- °C</span></div>
+                <div class="mech-divider"></div>
+                <div class="mech-metric"><span class="metric-label">CURRENT</span><svg class="mini-spark" id="spark-${m.id}-cur" width="80" height="24" viewBox="0 0 80 24"></svg><span class="metric-val" id="mval-${m.id}-cur">-- A</span></div>
+                <div class="mech-health-stripe" id="mhealth-${m.id}"></div>
+            </div>
+        </div>`;
+    }
+
+    function updateSparkline(svgId, value) {
+        if (!sparkData[svgId]) sparkData[svgId] = [];
+        sparkData[svgId].push(value);
+        if (sparkData[svgId].length > 20) sparkData[svgId].shift();
+        const pts = sparkData[svgId];
+        const svg = document.getElementById(svgId);
+        if (!svg) return;
+        const min = Math.min(...pts), max = Math.max(...pts);
+        const range = max - min || 1;
+        const d = pts.map((v, i) => `${(i / (pts.length - 1)) * 80},${24 - ((v - min) / range) * 20}`).join(' L');
+        const color = svg.getAttribute('data-status-color') || 'var(--cyan)';
+        svg.innerHTML = `<polyline points="0,12 L${d}" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.8"/>`;
+    }
+
+    function updateMachine(m) {
+        const tStatus = SimEngine.getStatus(m.temp);
+        const cStatus = SimEngine.getStatus(m.current);
+        const worst = (tStatus === 'DANGER' || cStatus === 'DANGER') ? 'DANGER' : (tStatus === 'WARNING' || cStatus === 'WARNING') ? 'WARNING' : (tStatus === 'OFFLINE' || cStatus === 'OFFLINE') ? 'OFFLINE' : 'SAFE';
+        const worstClass = worst.toLowerCase();
+
+        const dot = document.getElementById('mdot-' + m.id);
+        if (dot) dot.className = 'mech-status-dot ' + worstClass;
+
+        const tColor = tStatus === 'OFFLINE' ? 'var(--t3)' : tStatus === 'DANGER' ? 'var(--danger)' : tStatus === 'WARNING' ? 'var(--warn)' : 'var(--safe)';
+        const tEl = document.getElementById('mval-' + m.id + '-temp');
+        if (tEl) {
+            tEl.textContent = tStatus === 'OFFLINE' ? '-- °C' : m.temp.value.toFixed(1) + ' °C';
+            tEl.style.color = tColor;
+            tEl.style.textShadow = tStatus === 'OFFLINE' ? 'none' : `0 0 10px ${tColor}`;
+        }
+
+        const cColor = cStatus === 'OFFLINE' ? 'var(--t3)' : cStatus === 'DANGER' ? 'var(--danger)' : cStatus === 'WARNING' ? 'var(--warn)' : 'var(--safe)';
+        const cEl = document.getElementById('mval-' + m.id + '-cur');
+        if (cEl) {
+            cEl.textContent = cStatus === 'OFFLINE' ? '-- A' : m.current.value.toFixed(1) + ' A';
+            cEl.style.color = cColor;
+            cEl.style.textShadow = cStatus === 'OFFLINE' ? 'none' : `0 0 10px ${cColor}`;
+        }
+
+        const stripe = document.getElementById('mhealth-' + m.id);
+        if (stripe) stripe.style.background = worst === 'offline' ? 'var(--border)' : `var(--${worst})`;
+
+        if (tStatus !== 'OFFLINE') updateSparkline('spark-' + m.id + '-temp', m.temp.value);
+        if (cStatus !== 'OFFLINE') updateSparkline('spark-' + m.id + '-cur', m.current.value);
+    }
+
+    // Build machines once loaded from API via SimEngine
+    document.addEventListener('machinesLoaded', () => {
+        const grid = document.getElementById('mech-grid');
+        grid.innerHTML = SimEngine.machines.map(buildMachinePanel).join('');
+        document.getElementById('machine-count').textContent = SimEngine.machines.length;
+        SimEngine.machines.forEach(updateMachine);
+    });
+
+    // Listen for SimEngine updates
+    document.addEventListener('sensorUpdate', (e) => {
+        const { sensors, machines } = e.detail;
+        Object.entries(sensors).forEach(([key, s]) => updateGauge(key, s));
+        machines.forEach(updateMachine);
+    });
+
+    // Also fetch from API for real data
+    let envLimits = { temperature_limit:50, gas_limit:50, fire_limit:0.5 };
+    async function fetchAPI() {
+        try {
+            const [envRes, alertRes, machRes] = await Promise.all([
+                fetch(`/api/sensors/latest?user_id=${userId}${simParam}`),
+                fetch(`/api/alerts?user_id=${userId}${simParam}`),
+                fetch(`/api/machines?user_id=${userId}${simParam}`)
+            ]);
+            const alertData = await alertRes.json();
+            if (alertData.success) document.getElementById('alert-count').textContent = alertData.data.length;
+            const machData = await machRes.json();
+            if (machData.success) document.getElementById('machine-count').textContent = Math.max(SimEngine.machines.length, machData.data.length);
+        } catch(e) {}
+    }
+    fetchAPI();
+    setInterval(fetchAPI, 5000);
+
+    // Init gauges immediately
+    Object.entries(SimEngine.sensors).forEach(([key, s]) => updateGauge(key, s));
+    setTimeout(() => initScrollReveal(), 100);
+    </script>
+</body>
+</html>

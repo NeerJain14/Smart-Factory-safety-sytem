@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Smart Factory Safety System — Actuator Command Center. Fan control, emergency power cutoff, and LCD comms transmitter.">
+    <title>Smart Factory Safety System — Control</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="forge.css">
+    <style>
+    .actuator-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-bottom:2.5rem}
+    @media(max-width:768px){.actuator-grid{grid-template-columns:1fr}}
+    .actuator-panel{background:var(--abyss);border:1px solid var(--border);border-radius:4px;padding:2rem 1.75rem;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:1.25rem;transition:transform .3s,box-shadow .3s}
+    .actuator-panel:hover{transform:translateY(-3px);box-shadow:0 14px 44px rgba(0,0,0,.55)}
+    .panel-accent{position:absolute;top:0;left:0;right:0;height:2px}
+    .panel-accent.cyan{background:linear-gradient(90deg,var(--cyan),transparent);box-shadow:0 0 12px var(--cyan)}
+    .panel-accent.danger{background:linear-gradient(90deg,var(--danger),transparent);box-shadow:0 0 12px var(--danger)}
+    .panel-accent.safe{background:linear-gradient(90deg,var(--safe),transparent);box-shadow:0 0 12px var(--safe)}
+    .panel-icon-box{width:72px;height:72px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+    .panel-icon-box.cyan{background:var(--cyan-dim);border:1px solid var(--border-lit)}
+    .panel-icon-box.danger{background:var(--danger-dim);border:1px solid var(--border-danger)}
+    .panel-icon-box.safe{background:var(--safe-dim);border:1px solid rgba(0,230,118,.25)}
+    #fan-blades.spinning{animation:fanSpin 1.5s linear infinite}
+    .panel-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:var(--t1)}
+    .panel-sub{font-family:'Exo 2',sans-serif;font-size:.78rem;color:var(--t3);margin-top:2px}
+    .toggle-row{display:flex;align-items:center;gap:14px}
+    .ind-toggle{width:64px;height:32px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:4px;position:relative;cursor:pointer;transition:background .28s,border-color .28s}
+    .ind-toggle.on{background:var(--cyan-dim);border-color:var(--cyan)}
+    .toggle-knob{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:3px;background:var(--surface);transition:left .28s cubic-bezier(.4,0,.2,1),background .28s}
+    .ind-toggle.on .toggle-knob{left:35px;background:var(--cyan)}
+    .toggle-status{font-family:'Share Tech Mono',monospace;font-size:.85rem}
+    .toggle-status.offline{color:var(--t3)} .toggle-status.online{color:var(--cyan)}
+    .shutdown-area{display:flex;flex-direction:column;align-items:center;gap:12px}
+    .engage-btn{width:120px;height:120px;border-radius:50%;border:2px solid var(--danger);background:var(--danger-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:box-shadow .25s,transform .15s;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.9rem;letter-spacing:.1em;color:var(--danger)}
+    .engage-btn:hover{box-shadow:0 0 0 10px rgba(255,23,68,.08),0 0 0 20px rgba(255,23,68,.04),0 0 40px rgba(255,23,68,.2)}
+    .engage-btn:active{transform:scale(.96)}
+    .engage-inner-ring{position:absolute;inset:8px;border-radius:50%;border:1px solid rgba(255,23,68,.3);pointer-events:none}
+    .countdown-bar-track{width:100%;height:4px;background:var(--border);border-radius:999px;overflow:hidden}
+    .countdown-bar-fill{height:100%;background:var(--danger);width:100%;border-radius:999px;transition:width 1s linear}
+    .countdown-text{font-family:'Share Tech Mono',monospace;font-size:.82rem;color:var(--danger);text-align:center}
+    .abort-btn{background:transparent;border:1px solid var(--border-warn);color:var(--amber);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.1em;border-radius:3px;padding:5px 14px;cursor:pointer;width:100%}
+    .abort-btn:hover{background:var(--amber-dim)}
+    .terminal-compose{background:rgba(0,20,5,.6);border:1px solid rgba(0,230,118,.25);border-radius:3px;padding:10px 12px;position:relative}
+    .term-prompt{display:flex;align-items:baseline;font-family:'Share Tech Mono',monospace;font-size:.9rem;color:rgba(0,230,118,.7)}
+    .term-input{font-family:'Share Tech Mono',monospace;font-size:.9rem;color:var(--safe);outline:none;min-width:10px;flex:1;caret-color:var(--safe);background:transparent;border:none}
+    .term-cursor{font-family:'Share Tech Mono',monospace;color:var(--safe);animation:termBlink 1s step-end infinite}
+    .term-charcount{font-family:'Share Tech Mono',monospace;font-size:.65rem;color:var(--t3);text-align:right;margin-top:4px}
+    .transmit-btn{background:var(--safe-dim);border:1px solid rgba(0,230,118,.35);color:var(--safe);font-family:'Share Tech Mono',monospace;font-weight:600;font-size:.82rem;border-radius:3px;padding:9px;width:100%;cursor:pointer;letter-spacing:.08em;transition:all .2s}
+    .transmit-btn:hover{background:rgba(0,230,118,.18);box-shadow:0 0 18px rgba(0,230,118,.2)}
+    .log-terminal{background:var(--void);border:1px solid var(--border);border-radius:3px;max-height:260px;overflow-y:auto;font-family:'Share Tech Mono',monospace;font-size:.76rem;padding:.5rem}
+    .log-row{display:grid;grid-template-columns:90px 1fr 80px 60px;gap:1rem;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.02);animation:rowSlideIn .22s ease}
+    .log-row:nth-child(even){background:rgba(255,255,255,.015)}
+    .log-row .ts{color:var(--t3)} .log-row .act{color:var(--cyan)} .log-row .cmd{color:var(--t1)} .log-row .trg{color:var(--amber)}
+    </style>
+</head>
+<body>
+    <canvas id="bg-canvas" style="position:fixed;inset:0;z-index:-2;pointer-events:none;opacity:0.38;"></canvas>
+    <div id="scanlines"></div><div id="alert-warning"></div><div id="alert-danger"></div>
+
+    <nav id="command-rail">
+        <div class="rail-logo"><svg width="42" height="42" viewBox="0 0 42 42"><polygon points="21,3 38,12 38,30 21,39 4,30 4,12" fill="none" stroke="var(--cyan)" stroke-width="1.2" opacity="0.8" style="animation:railLogoRotate 14s linear infinite;transform-origin:21px 21px;"/><text x="21" y="25" text-anchor="middle" fill="var(--cyan)" font-family="Share Tech Mono" font-size="8">SF</text></svg><span class="rail-logo-sub">SYS//01</span></div>
+        <div class="rail-nav">
+            <a href="dashboard.html" class="rail-btn" data-tip="Dashboard"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></a>
+            <a href="machines.html" class="rail-btn" data-tip="Machines"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></a>
+            <a href="graphs.html" class="rail-btn" data-tip="Graphs"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12 Q6 6 12 12 Q18 6 22 12"/><path d="M2 18 Q6 12 12 18 Q18 12 22 18"/></svg></a>
+            <a href="analytics.html" class="rail-btn" data-tip="Analytics"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="21"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg></a>
+            <a href="control.html" class="rail-btn active" data-tip="Control"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a5 5 0 0 1 0 10"/><circle cx="12" cy="12" r="1.5"/><line x1="12" y1="13.5" x2="12" y2="22"/></svg></a>
+            <a href="alerts.html" class="rail-btn" data-tip="Alerts"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.3 3.7a2 2 0 0 1 3.4 0L21 18H3L10.3 3.7Z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg></a>
+        </div>
+        <div class="rail-bottom"><div class="rail-avatar" id="user-avatar">??</div><button class="rail-logout" onclick="logout()" title="Logout"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button></div>
+    </nav>
+
+    <main class="content">
+        <h1 class="page-heading">SMART FACTORY SAFETY SYSTEM<span> // </span>ACTUATOR CTRL</h1>
+
+        <div class="actuator-grid">
+            <div class="actuator-panel reveal" id="panel-fan">
+                <div class="panel-accent cyan"></div>
+                <div class="panel-icon-box cyan">
+                    <svg id="fan-icon" width="48" height="48" viewBox="0 0 48 48">
+                        <g id="fan-blades" style="transform-origin:24px 24px">
+                            <path d="M24 24 Q18 10 24 4 Q34 10 24 24" fill="rgba(0,240,255,0.7)"/>
+                            <path d="M24 24 Q38 18 44 24 Q38 34 24 24" fill="rgba(0,240,255,0.7)" transform="rotate(90 24 24)"/>
+                            <path d="M24 24 Q30 38 24 44 Q14 38 24 24" fill="rgba(0,240,255,0.7)" transform="rotate(180 24 24)"/>
+                            <path d="M24 24 Q10 30 4 24 Q10 14 24 24" fill="rgba(0,240,255,0.7)" transform="rotate(270 24 24)"/>
+                        </g>
+                        <circle cx="24" cy="24" r="4" fill="var(--cyan)"/>
+                    </svg>
+                </div>
+                <div class="panel-info"><div class="panel-name">THERMAL REGULATION UNIT</div><div class="panel-sub">Cooling Fan Array — Zone A</div></div>
+                <div class="toggle-row">
+                    <div class="ind-toggle" id="toggle-fan" onclick="toggleFan()"><div class="toggle-knob"></div></div>
+                    <span class="toggle-status offline" id="fan-status-text">■ OFFLINE</span>
+                </div>
+            </div>
+
+            <div class="actuator-panel reveal danger-panel" id="panel-power">
+                <div class="panel-accent danger"></div>
+                <div class="panel-icon-box danger">
+                    <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><path d="M24 4 L24 24" stroke="var(--danger)" stroke-width="3" stroke-linecap="round"/><path d="M14 10 A18 18 0 1 0 34 10" stroke="var(--danger)" stroke-width="3" stroke-linecap="round" fill="none"/></svg>
+                </div>
+                <div class="panel-info"><div class="panel-name">POWER INTERRUPTION SYSTEM</div><div class="panel-sub">Emergency Grid Cutoff — Full Facility</div></div>
+                <div class="shutdown-area">
+                    <div class="engage-btn" id="engage-shutdown" onclick="initiateShutdown()"><span>INITIATE</span><div class="engage-inner-ring"></div></div>
+                    <div class="shutdown-confirm hidden" id="shutdown-confirm">
+                        <div class="countdown-bar-track"><div class="countdown-bar-fill" id="countdown-fill"></div></div>
+                        <div class="countdown-text" id="countdown-text">EXECUTING IN 3s</div>
+                        <button class="abort-btn" onclick="abortShutdown()">ABORT</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actuator-panel reveal" id="panel-lcd">
+                <div class="panel-accent safe"></div>
+                <div class="panel-icon-box safe">
+                    <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><rect x="6" y="10" width="36" height="24" rx="2" stroke="var(--safe)" stroke-width="1.5"/><line x1="12" y1="38" x2="36" y2="38" stroke="var(--safe)" stroke-width="1.5"/><line x1="24" y1="34" x2="24" y2="38" stroke="var(--safe)" stroke-width="1.5"/><text x="24" y="26" text-anchor="middle" font-family="Share Tech Mono" font-size="8" fill="var(--safe)">TX</text></svg>
+                </div>
+                <div class="panel-info"><div class="panel-name">COMMS TRANSMITTER</div><div class="panel-sub">LCD Floor Display — All Sectors</div></div>
+                <div class="terminal-compose">
+                    <div class="term-prompt">TX:&gt;&nbsp;<input class="term-input" id="lcd-input" maxlength="32" placeholder="enter message..."><span class="term-cursor">█</span></div>
+                    <div class="term-charcount"><span id="char-count">0</span>/32</div>
+                </div>
+                <button class="transmit-btn" onclick="transmitLCD()">▶▶ BROADCAST</button>
+            </div>
+        </div>
+
+        <div class="section-divider"><span>ACTUATOR COMMAND LOG</span><div class="div-line"></div></div>
+        <div class="log-terminal" id="actuator-log"></div>
+    </main>
+
+    <script src="forge.js"></script>
+    <script>
+    const auth = getAuthInfo();
+    if (!auth) throw 'No auth';
+    const { userId, simParam, isSim } = auth;
+
+    let fanOn = false;
+    let actuators = {};
+    let shutdownTimer = null;
+
+    // Char counter
+    const lcdInput = document.getElementById('lcd-input');
+    lcdInput.addEventListener('input', () => { document.getElementById('char-count').textContent = lcdInput.value.length; });
+
+    // Load actuator IDs
+    async function loadActuators() {
+        try {
+            const res = await fetch(`/api/actuators?user_id=${userId}${simParam}`);
+            const data = await res.json();
+            if (data.success) data.data.forEach(a => { actuators[a.actuator_type] = a.actuator_id; });
+        } catch(e) {}
+    }
+
+    function toggleFan() {
+        fanOn = !fanOn;
+        const toggle = document.getElementById('toggle-fan');
+        const text = document.getElementById('fan-status-text');
+        const blades = document.getElementById('fan-blades');
+        toggle.classList.toggle('on', fanOn);
+        text.textContent = fanOn ? '■ ONLINE' : '■ OFFLINE';
+        text.className = 'toggle-status ' + (fanOn ? 'online' : 'offline');
+        blades.classList.toggle('spinning', fanOn);
+        logActuatorAction(actuators.cooling_fan, fanOn ? 'ON' : 'OFF', 'manual');
+        if (window.HardwareLink) window.HardwareLink.sendCommand(fanOn ? 'fan_on' : 'fan_off');
+    }
+
+    let countdownSeconds = 3;
+    function initiateShutdown() {
+        document.getElementById('engage-shutdown').classList.add('hidden');
+        document.getElementById('shutdown-confirm').classList.remove('hidden');
+        countdownSeconds = 3;
+        document.getElementById('countdown-text').textContent = `EXECUTING IN ${countdownSeconds}s`;
+        document.getElementById('countdown-fill').style.width = '100%';
+        shutdownTimer = setInterval(() => {
+            countdownSeconds--;
+            if (countdownSeconds <= 0) {
+                clearInterval(shutdownTimer);
+                document.getElementById('countdown-text').textContent = 'SHUTDOWN EXECUTED';
+                document.getElementById('countdown-fill').style.width = '0%';
+                logActuatorAction(actuators.power_cutoff, 'SHUTDOWN', 'manual');
+                if (window.HardwareLink) {
+                    window.HardwareLink.sendCommand('buzz_on');
+                    setTimeout(() => window.HardwareLink.sendCommand('buzz_off'), 1000);
+                }
+                setTimeout(() => { abortShutdown(); }, 2000);
+            } else {
+                document.getElementById('countdown-text').textContent = `EXECUTING IN ${countdownSeconds}s`;
+                document.getElementById('countdown-fill').style.width = ((countdownSeconds / 3) * 100) + '%';
+            }
+        }, 1000);
+    }
+
+    function abortShutdown() {
+        clearInterval(shutdownTimer);
+        document.getElementById('shutdown-confirm').classList.add('hidden');
+        document.getElementById('engage-shutdown').classList.remove('hidden');
+    }
+
+    function transmitLCD() {
+        const msg = lcdInput.value.trim();
+        if (!msg) return;
+        logActuatorAction(actuators.lcd_display, 'TX: ' + msg, 'manual');
+        if (window.HardwareLink) window.HardwareLink.sendCommand('lcd_msg', { msg, isBroadcast: true });
+        lcdInput.value = '';
+        document.getElementById('char-count').textContent = '0';
+    }
+
+    async function logActuatorAction(actuatorId, action, trigger) {
+        if (!actuatorId) return;
+        const body = { user_id: userId, actuator_id: actuatorId, action, trigger_type: trigger };
+        if (isSim) body.is_sim = true;
+        try { await fetch('/api/actuators/control', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }); } catch(e) {}
+        SimEngine.actuatorLog.unshift({ timestamp: new Date().toLocaleTimeString('en-GB'), action, actuator: action.startsWith('TX') ? 'LCD' : action === 'SHUTDOWN' ? 'POWER' : 'FAN', trigger });
+        renderLog();
+    }
+
+    async function loadLog() {
+        try {
+            const res = await fetch(`/api/actuators/logs?user_id=${userId}${simParam}`);
+            const data = await res.json();
+            if (data.success) {
+                data.data.forEach(r => {
+                    SimEngine.actuatorLog.push({ timestamp: new Date(r.timestamp).toLocaleTimeString('en-GB'), action: r.action, actuator: r.actuator_name || r.actuator_type, trigger: r.trigger_type });
+                });
+                renderLog();
+            }
+        } catch(e) {}
+    }
+
+    function renderLog() {
+        document.getElementById('actuator-log').innerHTML = SimEngine.actuatorLog.slice(0, 30).map(r =>
+            `<div class="log-row"><span class="ts">${r.timestamp}</span><span class="act">${r.actuator}</span><span class="cmd">${r.action}</span><span class="trg">${r.trigger}</span></div>`
+        ).join('') || '<div style="padding:1rem;color:var(--t3);text-align:center">No log entries</div>';
+    }
+
+    loadActuators();
+    loadLog();
+    setTimeout(() => initScrollReveal(), 100);
+    </script>
+</body>
+</html>

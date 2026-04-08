@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Smart Factory Safety System — Incident Chronology. Real-time anomaly registry with threshold violation tracking.">
+    <title>Smart Factory Safety System — Alerts</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="forge.css">
+    <style>
+    .chrono-wrap{position:relative;padding:2rem 0;min-height:400px}
+    .chrono-spine{position:absolute;left:50%;top:0;bottom:0;width:2px;transform:translateX(-50%);background:linear-gradient(to bottom,transparent,var(--cyan) 8%,var(--cyan) 92%,transparent);box-shadow:0 0 14px var(--cyan),0 0 36px var(--cyan-glow);overflow:hidden}
+    .spine-chevron{position:absolute;left:50%;transform:translateX(-50%);color:var(--cyan);font-size:.8rem;line-height:1;animation:spineFlow 4s linear infinite}
+    .alert-card{position:relative;max-width:420px;background:var(--abyss);border:1px solid var(--border);padding:1.25rem;margin-bottom:1.75rem;animation:cardDrop .48s cubic-bezier(.4,0,.2,1) both;transition:border-color .25s,box-shadow .25s}
+    .alert-card:hover{border-color:var(--border-lit);box-shadow:0 6px 28px rgba(0,0,0,.5)}
+    .alert-card.left{margin-right:calc(50% + 2rem);clip-path:polygon(0 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%)}
+    .alert-card.right{margin-left:calc(50% + 2rem);clip-path:polygon(14px 0,100% 0,100% 100%,0 100%,0 14px)}
+    .alert-card::before{content:'';position:absolute;top:1.6rem;width:12px;height:12px;border-radius:2px;transform:rotate(45deg)}
+    .alert-card.left::before{right:calc(-2rem - 6px)}
+    .alert-card.right::before{left:calc(-2rem - 6px)}
+    .alert-card.warning-card::before{background:var(--warn);box-shadow:0 0 8px var(--warn-glow)}
+    .alert-card.critical-card::before{background:var(--danger);animation:criticalPulse 1s ease-out infinite}
+    .alert-ts{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--t3);margin-bottom:4px;display:block}
+    .alert-type{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.1rem;letter-spacing:.1em;display:block;margin-bottom:6px}
+    .alert-type.warning{color:var(--warn)}
+    .alert-type.critical{color:var(--danger)}
+    .alert-card.info-card::before{background:var(--cyan);box-shadow:0 0 8px var(--cyan-glow)}
+    .alert-type.info{color:var(--cyan)}
+    .alert-msg{font-family:'Exo 2',sans-serif;font-size:.85rem;color:var(--t2);margin-bottom:10px}
+    .alert-source-pill{display:inline-block;border-radius:3px;font-family:'Share Tech Mono',monospace;font-size:.65rem;padding:2px 8px}
+    .alert-source-pill.env{background:var(--cyan-dim);color:var(--cyan);border:1px solid rgba(0,240,255,.25)}
+    .alert-source-pill.mach{background:var(--violet-dim);color:var(--violet);border:1px solid rgba(213,0,249,.25)}
+    @media(max-width:768px){
+        .alert-card.left,.alert-card.right{margin-left:2rem;margin-right:0;max-width:calc(100% - 2rem)}
+        .chrono-spine{left:1rem}
+        .alert-card.left::before,.alert-card.right::before{left:calc(-1.5rem - 6px);right:auto}
+    }
+    </style>
+</head>
+<body>
+    <canvas id="bg-canvas" style="position:fixed;inset:0;z-index:-2;pointer-events:none;opacity:0.38;"></canvas>
+    <div id="scanlines"></div><div id="alert-warning"></div><div id="alert-danger"></div>
+
+    <nav id="command-rail">
+        <div class="rail-logo"><svg width="42" height="42" viewBox="0 0 42 42"><polygon points="21,3 38,12 38,30 21,39 4,30 4,12" fill="none" stroke="var(--cyan)" stroke-width="1.2" opacity="0.8" style="animation:railLogoRotate 14s linear infinite;transform-origin:21px 21px;"/><text x="21" y="25" text-anchor="middle" fill="var(--cyan)" font-family="Share Tech Mono" font-size="8">SF</text></svg><span class="rail-logo-sub">SYS//01</span></div>
+        <div class="rail-nav">
+            <a href="dashboard.html" class="rail-btn" data-tip="Dashboard"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></a>
+            <a href="machines.html" class="rail-btn" data-tip="Machines"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></a>
+            <a href="graphs.html" class="rail-btn" data-tip="Graphs"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12 Q6 6 12 12 Q18 6 22 12"/><path d="M2 18 Q6 12 12 18 Q18 12 22 18"/></svg></a>
+            <a href="analytics.html" class="rail-btn" data-tip="Analytics"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="21"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg></a>
+            <a href="control.html" class="rail-btn" data-tip="Control"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a5 5 0 0 1 0 10"/><circle cx="12" cy="12" r="1.5"/><line x1="12" y1="13.5" x2="12" y2="22"/></svg></a>
+            <a href="alerts.html" class="rail-btn active" data-tip="Alerts"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.3 3.7a2 2 0 0 1 3.4 0L21 18H3L10.3 3.7Z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg></a>
+        </div>
+        <div class="rail-bottom"><div class="rail-avatar" id="user-avatar">??</div><button class="rail-logout" onclick="logout()" title="Logout"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button></div>
+    </nav>
+
+    <main class="content">
+        <h1 class="page-heading">SMART FACTORY SAFETY SYSTEM<span> // </span>ALERTS</h1>
+        <p class="page-sub">Centralized Incident Chronology — Real-time Anomaly Registry</p>
+
+        <div class="chrono-wrap" id="chrono-wrap">
+            <div class="chrono-spine">
+                <div class="spine-chevron" style="animation-delay:0s">›</div>
+                <div class="spine-chevron" style="animation-delay:1.3s">›</div>
+                <div class="spine-chevron" style="animation-delay:2.6s">›</div>
+            </div>
+        </div>
+    </main>
+
+    <script src="forge.js"></script>
+    <script>
+    const auth = getAuthInfo();
+    if (!auth) throw 'No auth';
+    const { userId, simParam } = auth;
+
+    let alertIdx = 0;
+
+    function createAlertCard(alert) {
+        const side = alertIdx % 2 === 0 ? 'left' : 'right';
+        alertIdx++;
+        const sev = alert.severity === 'DANGER' ? 'critical' : 'warning';
+        const sourceClass = (alert.source || '').includes('ENV') ? 'env' : 'mach';
+        const sourceLabel = (alert.source || '').includes('ENV') ? 'GLOBAL ENV' : 'MACHINE';
+
+        const card = document.createElement('div');
+        card.className = `alert-card ${side} ${sev}-card`;
+        card.innerHTML = `
+            <span class="alert-ts">${alert.timestamp}</span>
+            <span class="alert-type ${sev}" data-text="${alert.type}">${alert.type}</span>
+            <div class="alert-msg">${alert.message}</div>
+            <span class="alert-source-pill ${sourceClass}">${sourceLabel}</span>
+        `;
+        return card;
+    }
+
+    // Render existing SimEngine alerts
+    function renderExisting() {
+        const wrap = document.getElementById('chrono-wrap');
+        const spine = wrap.querySelector('.chrono-spine');
+        SimEngine.alertLog.forEach(a => {
+            wrap.insertBefore(createAlertCard(a), spine.nextSibling);
+        });
+    }
+
+    // Listen for new alerts from SimEngine
+    document.addEventListener('newAlert', (e) => {
+        const wrap = document.getElementById('chrono-wrap');
+        const spine = wrap.querySelector('.chrono-spine');
+        const card = createAlertCard(e.detail);
+        if (spine.nextSibling) {
+            wrap.insertBefore(card, spine.nextSibling);
+        } else {
+            wrap.appendChild(card);
+        }
+    });
+
+    // Also load from API
+    async function loadAPIAlerts() {
+        try {
+            const [alRes, actRes] = await Promise.all([
+                fetch(`/api/alerts?user_id=${userId}${simParam}`),
+                fetch(`/api/actuators/logs?user_id=${userId}${simParam}`)
+            ]);
+            const alData = await alRes.json();
+            const actData = await actRes.json();
+            
+            let combined = [];
+            if (alData.success) {
+                combined = combined.concat(alData.data.map(a => ({
+                    tsDate: new Date(a.timestamp),
+                    timestamp: new Date(a.timestamp).toLocaleString(),
+                    type: (a.alert_type || 'ALERT').toUpperCase(),
+                    severity: a.alert_level === 'CRITICAL' ? 'DANGER' : 'WARNING',
+                    message: a.alert_message || '',
+                    source: a.machine_id ? 'MACHINE' : 'GLOBAL ENV'
+                })));
+            }
+            if (actData.success) {
+                combined = combined.concat(actData.data.map(a => ({
+                    tsDate: new Date(a.timestamp),
+                    timestamp: new Date(a.timestamp).toLocaleString(),
+                    type: 'ACTUATOR LOG',
+                    severity: 'INFO',
+                    message: `▶ [${a.actuator_name}]: ${a.action} | Activated due to: ${a.trigger_type.toUpperCase()}`,
+                    source: 'CONTROL SYS'
+                })));
+            }
+            
+            combined.sort((a,b) => a.tsDate - b.tsDate); // Ascending order
+            
+            const wrap = document.getElementById('chrono-wrap');
+            const spine = wrap.querySelector('.chrono-spine');
+            combined.forEach(a => {
+                // Determine CSS severity dynamically for the card layout
+                const sevType = a.severity === 'DANGER' ? 'critical' : a.severity === 'INFO' ? 'info' : 'warning';
+                
+                const side = alertIdx % 2 === 0 ? 'left' : 'right';
+                alertIdx++;
+                const sourceClass = (a.source || '').includes('ENV') ? 'env' : 'mach';
+                
+                const card = document.createElement('div');
+                card.className = `alert-card ${side} ${sevType}-card`;
+                card.innerHTML = `
+                    <span class="alert-ts">${a.timestamp}</span>
+                    <span class="alert-type ${sevType}" data-text="${a.type}">${a.type}</span>
+                    <div class="alert-msg">${a.message}</div>
+                    <span class="alert-source-pill ${sourceClass}">${a.source}</span>
+                `;
+                wrap.insertBefore(card, spine.nextSibling);
+            });
+        } catch(e) {}
+    }
+
+    renderExisting();
+    loadAPIAlerts();
+    </script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+/* ══════════════════════════════════════════════════════════════
+   Smart Factory Safety System — Global Design System
+   ══════════════════════════════════════════════════════════════ */
+
+:root {
+  --void:        #04060d;
+  --abyss:       #080c18;
+  --pit:         #0d1220;
+  --shaft:       #121929;
+  --surface:     #1a2235;
+  --lifted:      #202a3d;
+  --cyan:        #00f0ff;
+  --cyan-dim:    rgba(0,240,255,0.12);
+  --cyan-mid:    rgba(0,240,255,0.25);
+  --cyan-glow:   rgba(0,240,255,0.5);
+  --amber:       #ff8c00;
+  --amber-dim:   rgba(255,140,0,0.12);
+  --amber-glow:  rgba(255,140,0,0.45);
+  --safe:        #00e676;
+  --safe-dim:    rgba(0,230,118,0.10);
+  --safe-glow:   rgba(0,230,118,0.4);
+  --danger:      #ff1744;
+  --danger-dim:  rgba(255,23,68,0.10);
+  --danger-glow: rgba(255,23,68,0.45);
+  --warn:        #ffea00;
+  --warn-dim:    rgba(255,234,0,0.10);
+  --warn-glow:   rgba(255,234,0,0.4);
+  --violet:      #d500f9;
+  --violet-dim:  rgba(213,0,249,0.10);
+  --t1:          rgba(255,255,255,0.92);
+  --t2:          rgba(255,255,255,0.55);
+  --t3:          rgba(255,255,255,0.25);
+  --border:      rgba(255,255,255,0.15);
+  --border-lit:  rgba(0,240,255,0.35);
+  --border-warn: rgba(255,140,0,0.4);
+  --border-danger: rgba(255,23,68,0.4);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--void);
+  color: var(--t1);
+  font-family: 'Exo 2', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+body { cursor: url(assets/cursor.svg) 10 10, crosshair; }
+
+main.content {
+  margin-left: 80px;
+  padding: 2rem 2.5rem;
+  max-width: 1400px;
+  animation: pageEntry 0.6s cubic-bezier(0.4,0,0.2,1) both;
+}
+
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.55s ease, transform 0.55s ease; }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.hidden { display: none !important; }
+
+/* ── Scanline Overlay ─────────────────────── */
+#scanlines {
+  position: fixed; inset: 0; z-index: 9997; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, transparent 0px, transparent 3px, rgba(0,0,0,0.045) 3px, rgba(0,0,0,0.045) 4px);
+}
+
+/* ── Emergency Perimeter Overlays (DISABLED — alerts flash locally) ─── */
+#alert-warning, #alert-danger {
+  display: none;
+}
+
+/* ── Keyframes ────────────────────────────── */
+@keyframes pageEntry { from { opacity:0; transform:translateY(16px) translateX(-6px); } to { opacity:1; transform:none; } }
+@keyframes breathe { 0%,100% { opacity:0.7; } 50% { opacity:1; } }
+@keyframes ping { 0% { opacity:0.8; } 100% { opacity:0; } }
+@keyframes orbitDash { to { stroke-dashoffset:0; } }
+@keyframes fanSpin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+@keyframes spineFlow { 0% { top:-20px; opacity:0; } 10% { opacity:1; } 90% { opacity:1; } 100% { top:100%; opacity:0; } }
+@keyframes termBlink { 0%,100% { opacity:1; } 50% { opacity:0; } }
+@keyframes dataFlash { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+@keyframes cardDrop { 0% { opacity:0; transform:translateY(-38px) scale(0.94); } 65% { opacity:1; } 100% { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes rowSlideIn { from { opacity:0; transform:translateX(-14px); } to { opacity:1; transform:translateX(0); } }
+@keyframes modalEntry { from { clip-path:circle(0% at 50% 50%); opacity:0; } to { clip-path:circle(150% at 50% 50%); opacity:1; } }
+@keyframes modalExit { from { clip-path:circle(150% at 50% 50%); opacity:1; } to { clip-path:circle(0% at 50% 50%); opacity:0; } }
+@keyframes numberCount { from { opacity:0.4; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+@keyframes shimmerScan { from { left:-100%; } to { left:200%; } }
+@keyframes flashOrange { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
+@keyframes criticalPulse { 0% { border-color:rgba(255,23,68,0.9); } 100% { border-color:rgba(255,23,68,0.3); } }
+@keyframes warningBreath { 0%,100% { opacity:0.45; } 50% { opacity:0.9; } }
+@keyframes dangerStrobe { 0%,100% { opacity:0.85; } 50% { opacity:0.2; } }
+@keyframes railLogoRotate { to { transform:rotate(360deg); } }
+
+/* ── Navigation Rail ──────────────────────── */
+#command-rail {
+  position: fixed; top: 0; left: 0; width: 80px; height: 100vh;
+  background: rgba(4,6,13,0.96); border-right: 1px solid var(--border);
+  backdrop-filter: blur(20px); z-index: 1000;
+  display: flex; flex-direction: column; align-items: center; padding: 1.25rem 0; gap: 0;
+}
+.rail-logo { display:flex; flex-direction:column; align-items:center; gap:4px; margin-bottom:2rem; }
+.rail-logo-sub { font-family:'Share Tech Mono',monospace; font-size:0.6rem; color:var(--t3); letter-spacing:0.05em; }
+.rail-nav { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; }
+.rail-btn {
+  position:relative; display:flex; align-items:center; justify-content:center;
+  width:48px; height:48px; border-radius:10px; color:var(--t3); text-decoration:none; transition:all 0.22s ease;
+}
+.rail-btn:hover, .rail-btn.active { color:var(--cyan); background:var(--cyan-dim); box-shadow:inset 2px 0 0 var(--cyan); }
+.rail-btn::after {
+  content:attr(data-tip); position:absolute; left:62px; background:var(--shaft); border:1px solid var(--border-lit);
+  border-radius:6px; padding:4px 12px; font-family:'Rajdhani',sans-serif; font-weight:600; font-size:0.82rem;
+  color:var(--cyan); white-space:nowrap; opacity:0; pointer-events:none; transform:translateX(-8px); transition:all 0.15s ease;
+}
+.rail-btn:hover::after { opacity:1; transform:translateX(0); }
+.rail-bottom { display:flex; flex-direction:column; align-items:center; gap:12px; }
+.rail-avatar {
+  width:36px; height:36px; border-radius:50%;
+  background:linear-gradient(135deg,var(--cyan-dim),var(--violet-dim));
+  border:1px solid var(--border-lit); display:flex; align-items:center; justify-content:center;
+  font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.8rem; color:var(--cyan);
+}
+.rail-logout {
+  background:transparent; border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  width:36px; height:36px; border-radius:8px; transition:background 0.2s;
+}
+.rail-logout:hover { background:var(--danger-dim); }
+
+/* ── Page Headings ────────────────────────── */
+.page-heading { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:1.7rem; letter-spacing:0.07em; color:var(--t1); margin-bottom:0.25rem; }
+.page-sub { font-family:'Exo 2',sans-serif; font-size:0.85rem; color:var(--t3); margin-bottom:2rem; }
+
+/* ── Section Dividers ─────────────────────── */
+.section-divider { display:flex; align-items:center; gap:1rem; margin:2rem 0 1.25rem; }
+.section-divider span { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.7rem; letter-spacing:0.2em; color:var(--t3); white-space:nowrap; }
+.div-line { flex:1; height:1px; background:linear-gradient(to right,var(--border),transparent); }
+
+/* ── Micro-interactions ───────────────────── */
+.interactive:active, button:active { transform:scale(0.97); }
+.hover-glow:hover { box-shadow:0 0 0 1px var(--border-lit),0 10px 36px rgba(0,0,0,0.55); transition:all 0.28s ease; }
+.data-flash { animation:dataFlash 0.5s ease; }
+.scan-sweep { position:absolute; top:0; bottom:0; width:2px; background:linear-gradient(to bottom,transparent,var(--cyan),transparent); pointer-events:none; animation:shimmerScan 0.35s linear forwards; }
+
+/* ── Scrollbars ───────────────────────────── */
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(0,240,255,0.15); border-radius:999px; }
+::-webkit-scrollbar-thumb:hover { background:rgba(0,240,255,0.3); }
+
+/* ── Responsive ───────────────────────────── */
+@media (max-width:768px) {
+  main.content { margin-left:0; padding:1rem; padding-top:80px; }
+  #command-rail { width:100%; height:64px; flex-direction:row; top:0; border-right:none; border-bottom:1px solid var(--border); }
+  .rail-nav { flex-direction:row; gap:4px; flex:1; justify-content:center; }
+  .rail-logo { flex-direction:row; margin-bottom:0; }
+  .rail-logo-sub { display:none; }
+  .rail-bottom { flex-direction:row; }
+  .rail-btn::after { display:none; }
+}

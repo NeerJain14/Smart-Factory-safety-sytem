@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Smart Factory Safety System — Identity verification gateway for industrial IoT monitoring.">
+    <title>Smart Factory Safety System — Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="forge.css">
+    <style>
+    .auth-stage { position:relative; min-height:100vh; display:flex; align-items:center; justify-content:center; margin-left:0; }
+    .auth-hex-ring { position:absolute; width:500px; height:500px; pointer-events:none; }
+    .auth-panel { position:relative; width:400px; max-width:95vw; background:var(--abyss); border:1px solid var(--border-lit); border-radius:4px; padding:2.5rem; }
+    .auth-decrypt-line { font-family:'Share Tech Mono',monospace; font-size:0.65rem; color:var(--cyan); letter-spacing:0.1em; margin-bottom:1.75rem; opacity:0.8; }
+    .auth-tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:2rem; gap:0; }
+    .auth-tab { flex:1; background:transparent; border:none; border-bottom:2px solid transparent; padding:8px 4px; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.78rem; letter-spacing:0.1em; color:var(--t3); cursor:pointer; transition:all 0.22s; margin-bottom:-1px; }
+    .auth-tab.active { color:var(--cyan); border-bottom-color:var(--cyan); }
+    .auth-tab.sim { color:var(--amber); }
+    .auth-tab.sim.active { color:var(--amber); border-bottom-color:var(--amber); }
+    .float-field { position:relative; margin-bottom:1.75rem; }
+    .float-field input { width:100%; background:transparent; border:none; border-bottom:1px solid var(--border); color:var(--t1); font-family:'Share Tech Mono',monospace; font-size:0.95rem; padding:10px 4px 8px; outline:none; transition:border-color 0.25s; }
+    .float-field input:focus { border-bottom-color:var(--cyan); }
+    .float-field label { position:absolute; top:10px; left:4px; font-family:'Rajdhani',sans-serif; font-weight:600; font-size:0.72rem; letter-spacing:0.12em; color:var(--t3); pointer-events:none; transition:all 0.2s; }
+    .float-field input:focus ~ label, .float-field input:not(:placeholder-shown) ~ label { top:-12px; font-size:0.62rem; color:var(--cyan); }
+    .auth-btn { width:100%; clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%); background:linear-gradient(90deg,var(--cyan),#0088ff); color:var(--void); font-family:'Rajdhani',sans-serif; font-weight:700; font-size:1rem; letter-spacing:0.12em; border:none; padding:13px; cursor:pointer; margin-top:0.5rem; transition:all 0.18s; }
+    .auth-btn:hover { transform:translateY(-1px); box-shadow:0 8px 28px var(--cyan-glow); }
+    .auth-btn:active { transform:translateY(1px); box-shadow:none; }
+    .sim-btn { background:transparent; border:2px solid var(--amber); color:var(--amber); clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%); }
+    .sim-btn:hover { background:var(--amber-dim); box-shadow:0 8px 28px var(--amber-glow); }
+    .sim-warning-block { background:var(--amber-dim); border:1px solid var(--border-warn); border-radius:4px; padding:1rem; margin-bottom:1.5rem; font-family:'Exo 2',sans-serif; font-size:0.85rem; color:var(--amber); line-height:1.5; }
+    .sim-warning-title { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.9rem; letter-spacing:0.1em; margin-bottom:0.5rem; }
+    .auth-error { font-family:'Share Tech Mono',monospace; font-size:0.75rem; color:var(--danger); text-align:center; margin-top:0.75rem; }
+    .auth-success { font-family:'Share Tech Mono',monospace; font-size:0.75rem; color:var(--safe); text-align:center; margin-top:0.75rem; }
+    </style>
+</head>
+<body>
+    <canvas id="bg-canvas" style="position:fixed;inset:0;z-index:-2;pointer-events:none;opacity:0.38;"></canvas>
+    <div id="scanlines"></div>
+    <div id="alert-warning"></div>
+    <div id="alert-danger"></div>
+
+    <main class="auth-stage">
+        <svg class="auth-hex-ring" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="250,30 450,145 450,355 250,470 50,355 50,145" fill="none" stroke="var(--cyan)" stroke-width="0.8" opacity="0.12"/>
+            <polygon points="250,30 450,145 450,355 250,470 50,355 50,145" fill="none" stroke="var(--cyan)" stroke-width="1.5" opacity="0.7" stroke-dasharray="40 900" stroke-dashoffset="940" style="animation:orbitDash 8s linear infinite; transform-origin:250px 250px;"/>
+        </svg>
+
+        <div class="auth-panel">
+            <div class="auth-decrypt-line">[ ████ ] IDENTITY VERIFICATION PROTOCOL</div>
+
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">LOGIN</button>
+                <button class="auth-tab" data-tab="register">REGISTER</button>
+                <button class="auth-tab sim" data-tab="simulation">SIMULATION</button>
+            </div>
+
+            <form class="auth-form" id="tab-login" onsubmit="handleLogin(event)">
+                <div class="float-field"><input type="email" id="email" required placeholder=" " autocomplete="off"><label for="email">EMAIL ADDRESS</label></div>
+                <div class="float-field"><input type="password" id="password" required placeholder=" "><label for="password">ACCESS CODE</label></div>
+                <button type="submit" class="auth-btn">AUTHENTICATE</button>
+                <div class="auth-error hidden" id="login-error"></div>
+            </form>
+
+            <form class="auth-form hidden" id="tab-register" onsubmit="handleRegister(event)">
+                <div class="float-field"><input type="text" id="reg-name" required placeholder=" "><label for="reg-name">OPERATOR NAME</label></div>
+                <div class="float-field"><input type="email" id="reg-email" required placeholder=" "><label for="reg-email">EMAIL ADDRESS</label></div>
+                <div class="float-field"><input type="password" id="reg-pass" required placeholder=" "><label for="reg-pass">SET ACCESS CODE</label></div>
+                <button type="submit" class="auth-btn">CREATE OPERATOR ACCOUNT</button>
+                <div class="auth-error hidden" id="reg-error"></div>
+                <div class="auth-success hidden" id="reg-success"></div>
+            </form>
+
+            <div class="auth-form hidden" id="tab-simulation">
+                <div class="sim-warning-block">
+                    <div class="sim-warning-title">⚠ SANDBOX ENVIRONMENT</div>
+                    <p>No credentials required. All data is simulated.<br>Sensor spikes, alerts, and actuator logs are synthetic.</p>
+                </div>
+                <button class="auth-btn sim-btn" onclick="enterSimulation()">▶▶ ENTER SIMULATION</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="forge.js" defer></script>
+    <script>
+    // Tab switching
+    document.querySelectorAll('.auth-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.add('hidden'));
+            document.getElementById('tab-' + tab.dataset.tab).classList.remove('hidden');
+        });
+    });
+
+    async function handleLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const errEl = document.getElementById('login-error');
+        errEl.classList.add('hidden');
+        try {
+            const res = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password}) });
+            const data = await res.json();
+            if (data.success) {
+                sessionStorage.setItem('user', JSON.stringify(data.user));
+                sessionStorage.setItem('mode', 'production');
+                window.location.href = 'dashboard.html';
+            } else { errEl.textContent = data.message || 'Authentication failed'; errEl.classList.remove('hidden'); }
+        } catch(err) { errEl.textContent = 'Connection error — check server status'; errEl.classList.remove('hidden'); }
+    }
+
+    async function handleRegister(e) {
+        e.preventDefault();
+        const name = document.getElementById('reg-name').value.trim();
+        const email = document.getElementById('reg-email').value.trim();
+        const password = document.getElementById('reg-pass').value;
+        const errEl = document.getElementById('reg-error');
+        const sucEl = document.getElementById('reg-success');
+        errEl.classList.add('hidden'); sucEl.classList.add('hidden');
+        try {
+            const res = await fetch('/api/auth/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name,email,password}) });
+            const data = await res.json();
+            if (data.success) {
+                sucEl.textContent = '✓ Account created! Switching to login...'; sucEl.classList.remove('hidden');
+                setTimeout(() => { document.querySelector('[data-tab="login"]').click(); document.getElementById('email').value = email; }, 1500);
+            } else { errEl.textContent = data.message || 'Registration failed'; errEl.classList.remove('hidden'); }
+        } catch(err) { errEl.textContent = 'Connection error — check server status'; errEl.classList.remove('hidden'); }
+    }
+
+    async function enterSimulation() {
+        try {
+            const res = await fetch('/api/auth/simulation', { method:'POST' });
+            const data = await res.json();
+            if (data.success) {
+                sessionStorage.setItem('user', JSON.stringify(data.user));
+                sessionStorage.setItem('mode', 'simulation');
+                window.location.href = 'dashboard.html';
+            }
+        } catch(err) { alert('Failed to start simulation. Is the server running?'); }
+    }
+    </script>
+</body>
+</html>

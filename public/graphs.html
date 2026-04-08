@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Smart Factory Safety System — Historical sensor telemetry, waveform playback, and trend analysis.">
+    <title>Smart Factory Safety System — History</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="forge.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+    .page-header{margin-bottom:2rem}
+    .page-header h1{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.7rem;letter-spacing:.07em;color:var(--t1);margin-bottom:.25rem}
+    .typewriter-sub{font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--cyan);min-height:1.2em;margin-bottom:.75rem}
+    .filter-group{display:flex;gap:4px;margin-top:.75rem}
+    .filter-btn{clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);background:transparent;border:1px solid var(--border);color:var(--t2);font-family:'Rajdhani',sans-serif;font-weight:600;font-size:.78rem;letter-spacing:.1em;padding:6px 18px;cursor:pointer;transition:all .2s}
+    .filter-btn.active{background:var(--cyan-dim);border-color:var(--cyan);color:var(--cyan)}
+    .chart-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.25rem}
+    @media(max-width:768px){.chart-grid{grid-template-columns:1fr}}
+    .chart-shell-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
+    .chart-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem;letter-spacing:.16em;color:var(--t2)}
+    .live-dot-indicator{display:flex;align-items:center;gap:6px;font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--safe)}
+    .live-dot-pulse{width:8px;height:8px;border-radius:50%;background:var(--safe);position:relative}
+    .live-dot-pulse::after{content:'';position:absolute;inset:0;border-radius:50%;border:1px solid var(--safe);animation:ping 1.5s ease-out infinite}
+    .threshold-labels{display:flex;gap:1rem;margin-top:.5rem}
+    .thresh{font-family:'Share Tech Mono',monospace;font-size:.68rem}
+    .thresh.safe{color:var(--safe)} .thresh.warn{color:var(--warn)} .thresh.danger{color:var(--danger)}
+    .analytics-chart-wrap{background:var(--abyss);border:1px solid var(--border);border-radius:4px;padding:1.25rem;margin-bottom:2rem}
+    </style>
+</head>
+<body>
+    <canvas id="bg-canvas" style="position:fixed;inset:0;z-index:-2;pointer-events:none;opacity:0.38;"></canvas>
+    <div id="scanlines"></div>
+    <div id="alert-warning"></div>
+    <div id="alert-danger"></div>
+
+    <nav id="command-rail">
+        <div class="rail-logo"><svg width="42" height="42" viewBox="0 0 42 42"><polygon points="21,3 38,12 38,30 21,39 4,30 4,12" fill="none" stroke="var(--cyan)" stroke-width="1.2" opacity="0.8" style="animation:railLogoRotate 14s linear infinite;transform-origin:21px 21px;"/><text x="21" y="25" text-anchor="middle" fill="var(--cyan)" font-family="Share Tech Mono" font-size="8">SF</text></svg><span class="rail-logo-sub">SYS//01</span></div>
+        <div class="rail-nav">
+            <a href="dashboard.html" class="rail-btn" data-tip="Dashboard"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></a>
+            <a href="machines.html" class="rail-btn" data-tip="Machines"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></a>
+            <a href="graphs.html" class="rail-btn active" data-tip="Graphs"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12 Q6 6 12 12 Q18 6 22 12"/><path d="M2 18 Q6 12 12 18 Q18 12 22 18"/></svg></a>
+            <a href="analytics.html" class="rail-btn" data-tip="Analytics"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="21"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg></a>
+            <a href="control.html" class="rail-btn" data-tip="Control"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a5 5 0 0 1 0 10"/><circle cx="12" cy="12" r="1.5"/><line x1="12" y1="13.5" x2="12" y2="22"/></svg></a>
+            <a href="alerts.html" class="rail-btn" data-tip="Alerts"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.3 3.7a2 2 0 0 1 3.4 0L21 18H3L10.3 3.7Z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg></a>
+        </div>
+        <div class="rail-bottom"><div class="rail-avatar" id="user-avatar">??</div><button class="rail-logout" onclick="logout()" title="Logout"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button></div>
+    </nav>
+
+    <main class="content">
+        <div class="page-header">
+            <h1>SMART FACTORY SAFETY SYSTEM<span> // </span>ARCHIVE</h1>
+            <div class="typewriter-sub" id="tw-sub"></div>
+            <div class="filter-group">
+                <button class="filter-btn active" data-range="hour">LAST HOUR</button>
+                <button class="filter-btn" data-range="day">LAST DAY</button>
+                <button class="filter-btn" data-range="week">LAST WEEK</button>
+            </div>
+        </div>
+
+        <div id="charts-container">
+            <div style="text-align:center; padding:2rem; font-family:'Share Tech Mono'; color:var(--cyan)">LOADING ARCHIVAL FEED...</div>
+        </div>
+    </main>
+
+    <script src="forge.js"></script>
+    <script>
+    const auth = getAuthInfo();
+    if (!auth) throw 'No auth';
+
+    // Typewriter
+    const msg = '> ACCESSING STORED WAVEFORMS... RENDERING TELEMETRY REPLAY';
+    let i = 0;
+    const twEl = document.getElementById('tw-sub');
+    const tw = setInterval(() => { twEl.textContent += msg[i++]; if (i >= msg.length) clearInterval(tw); }, 38);
+
+    // Filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+
+    // Chart defaults
+    Chart.defaults.color = 'rgba(255,255,255,0.7)';
+    Chart.defaults.font.family = "'Share Tech Mono', monospace";
+    Chart.defaults.font.size = 11;
+    Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(0,0,0,0.8)';
+    Chart.defaults.plugins.tooltip.titleColor = '#00f0ff';
+    Chart.defaults.plugins.tooltip.bodyColor = '#ffffff';
+
+    const charts = {};
+
+    function buildChartHTML(key, title, hintsHTML) {
+        return `
+        <div class="analytics-chart-wrap reveal" id="wrap-${key}">
+            <div class="chart-shell-header">
+                <span class="chart-title">${title}</span>
+                <div style="display:flex;gap:12px;align-items:center;">
+                    <div style="font-size:0.6rem;color:var(--t3);">(Scroll to Zoom, Drag to Pan)</div>
+                    <div class="live-dot-indicator"><div class="live-dot-pulse"></div><span>LIVE</span></div>
+                </div>
+            </div>
+            <canvas id="chart-${key}" height="220"></canvas>
+            <div class="threshold-labels">${hintsHTML}</div>
+        </div>`;
+    }
+
+    let lastChartUpdate = Date.now();
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const timeSpanUpdatePlugin = {
+        id: 'timeSpanUpdate',
+        afterRender: (chart) => {
+            const min = chart.scales.x.min;
+            const max = chart.scales.x.max;
+            if (min && max) {
+                const minD = new Date(min);
+                const maxD = new Date(max);
+                const t1 = minD.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+                const t2 = maxD.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+                chart.options.scales.x.title.text = `Timeline: ${t1} to ${t2} (${minD.toLocaleDateString()})`;
+            }
+        }
+    };
+
+    const baseOptions = {
+        responsive: true,
+        animation: { duration: 0 },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true, padding: 20 } },
+            zoom: {
+                pan: { enabled: true, mode: 'x', modifierKey: 'shift' },
+                zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' },
+                limits: {
+                    x: {
+                        min: startOfDay.getTime(),      // Hard boundary: start of current day
+                        max: endOfDay.getTime(),        // Hard boundary: end of current day
+                        minRange: 3600 * 1000,          // Cannot zoom in further than 1 hour viewport
+                        maxRange: 24 * 3600 * 1000      // Maximum zoom out is 24 hours
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                type: 'time',
+                title: { display: true, text: 'Time Span', color: 'rgba(0, 240, 255, 0.8)', font: { size: 13, family: 'Share Tech Mono' } },
+                time: { 
+                    minUnit: 'minute',
+                    tooltipFormat: 'HH:mm:ss',
+                    displayFormats: {
+                        minute: 'HH:mm',
+                        hour: 'HH:mm'
+                    }
+                },
+                min: Date.now() - 3600 * 1000, // Defaut zoomed-in state: 1 hour Window
+                max: Date.now(),
+                grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+                ticks: { maxRotation: 0, maxTicksLimit: 7 } // Approximately 10-minute segments in a 1-hour view
+            }
+        }
+    };
+
+    const optEnvTemp = JSON.parse(JSON.stringify(baseOptions));
+    optEnvTemp.scales.y = { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Temperature (°C)' }, grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false } };
+
+    const optEnvGas = JSON.parse(JSON.stringify(baseOptions));
+    optEnvGas.scales.y = { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Gas Level (ppm)' }, grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false } };
+
+    const optMac = JSON.parse(JSON.stringify(baseOptions));
+    optMac.scales.y = { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Temperature (°C)' }, grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false } };
+    optMac.scales.y1 = { type: 'linear', display: true, position: 'right', title: { display: true, text: 'Current Draw (A)' }, grid: { drawOnChartArea: false } };
+
+    async function loadAnalytics() {
+        try {
+            const res = await fetch(`/api/sensors/analytics/24h?user_id=${auth.userId}${auth.simParam}`);
+            const json = await res.json();
+            if (!json.success) return;
+            const data = json.data;
+
+            const envData = [];
+            const machineData = {};
+            data.forEach(row => {
+                const ts = new Date(row.timestamp).getTime();
+                if (row.machine_id === null) {
+                    envData.push({ ts, temp: row.temperature_value, gas: row.gas_value });
+                } else {
+                    if (!machineData[row.machine_id]) machineData[row.machine_id] = { name: row.sensor_name.split(' ')[0], records: [] };
+                    machineData[row.machine_id].records.push({ ts, temp: row.temperature_value, cur: row.current_value });
+                }
+            });
+
+            const container = document.getElementById('charts-container');
+            let fullHtml = '';
+
+            // Render Env Graphs split
+            fullHtml += `
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                ${buildChartHTML('env_temp', 'ENVIRONMENTAL TEMP (24H)', '<span class="thresh safe">— Ambient Temp (C)</span>')}
+                ${buildChartHTML('env_gas', 'AIR QUALITY MATRIX (24H)', '<span class="thresh warn">— Gas Level (ppm)</span>')}
+            </div>`;
+            
+            // Build HTML for Machine Graphs (side-by-side)
+            const machineIds = Object.keys(machineData);
+            if (machineIds.length > 0) {
+                fullHtml += `<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">`;
+                machineIds.forEach(mId => {
+                    const mInfo = machineData[mId];
+                    const hintsMac = `<span class="thresh safe">— Temp (C)</span> <span class="thresh danger">— Current (A)</span>`;
+                    fullHtml += buildChartHTML('mac_' + mId, `MACHINE OPERATIONS: ${mInfo.name.toUpperCase()} (24H)`, hintsMac);
+                });
+                fullHtml += `</div>`;
+            }
+
+            container.innerHTML = fullHtml;
+
+            // Now initialize charts
+            let envPts = envData.reduce((acc, r) => {
+                if (r.temp!=null) acc.temp.push({x: r.ts, y: r.temp});
+                if (r.gas!=null) acc.gas.push({x: r.ts, y: r.gas});
+                return acc;
+            }, {temp:[], gas:[]});
+
+            charts['env_temp'] = new Chart(document.getElementById('chart-env_temp').getContext('2d'), {
+                type: 'line',
+                data: { datasets: [{ label: 'Amb. Temp (°C)', data: envPts.temp, borderColor: '#00e676', backgroundColor: '#00e676', yAxisID: 'y', tension: 0.2, borderWidth: 1.5, pointRadius: 0, pointHitRadius: 10 }] },
+                options: optEnvTemp,
+                plugins: [timeSpanUpdatePlugin]
+            });
+
+            charts['env_gas'] = new Chart(document.getElementById('chart-env_gas').getContext('2d'), {
+                type: 'line',
+                data: { datasets: [{ label: 'Gas Level (ppm)', data: envPts.gas, borderColor: '#ffea00', backgroundColor: '#ffea00', yAxisID: 'y', tension: 0.2, borderWidth: 1.5, pointRadius: 0, pointHitRadius: 10 }] },
+                options: optEnvGas,
+                plugins: [timeSpanUpdatePlugin]
+            });
+
+            machineIds.forEach(mId => {
+                const mInfo = machineData[mId];
+                let mPts = mInfo.records.reduce((acc, r) => {
+                    if (r.temp!=null) acc.temp.push({x: r.ts, y: r.temp});
+                    if (r.cur!=null) acc.cur.push({x: r.ts, y: r.cur});
+                    return acc;
+                }, {temp:[], cur:[]});
+
+                charts['mac_' + mId] = new Chart(document.getElementById('chart-mac_' + mId).getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        datasets: [
+                            { label: 'Temperature (°C)', data: mPts.temp, borderColor: '#00e676', backgroundColor: '#00e676', yAxisID: 'y', tension: 0.2, borderWidth: 1.5, pointRadius: 0, pointHitRadius: 10 },
+                            { label: 'Current Draw (A)', data: mPts.cur, borderColor: '#ff1744', backgroundColor: '#ff1744', yAxisID: 'y1', tension: 0.2, borderWidth: 1.5, pointRadius: 0, pointHitRadius: 10, borderDash: [5, 5] }
+                        ]
+                    },
+                    options: optMac,
+                    plugins: [timeSpanUpdatePlugin]
+                });
+            });
+
+            setTimeout(() => initScrollReveal(), 100);
+
+        } catch (e) {
+            document.getElementById('charts-container').innerHTML = '<div style="color:var(--danger)">FAILED TO LOAD DATA (Attempting to fetch API)</div>';
+        }
+    }
+
+    // Connect real-time pushes
+    document.addEventListener('sensorUpdate', (e) => {
+        const { sensors, machines } = e.detail;
+        const now = Date.now();
+
+        if (now - lastChartUpdate < 15000) return; // Throttle to 15 seconds
+        lastChartUpdate = now;
+
+        if (charts['env_temp'] && charts['env_gas']) {
+            charts['env_temp'].data.datasets[0].data.push({ x: now, y: sensors.ambTemp.value });
+            charts['env_gas'].data.datasets[0].data.push({ x: now, y: sensors.gasLevel.value });
+            // Maintain 1-hour rolling window explicitly only if we are currently looking at the edge
+            // If the user panned back, do not force the view to slide forward!
+            const currentMin = charts['env_temp'].options.scales.x.min;
+            const currentMax = charts['env_temp'].options.scales.x.max;
+            if (now > currentMax - 30000 && currentMax > now - 60000) { 
+                const range = currentMax - currentMin;
+                charts['env_temp'].options.scales.x.min = now - range;
+                charts['env_temp'].options.scales.x.max = now;
+                charts['env_gas'].options.scales.x.min = now - range;
+                charts['env_gas'].options.scales.x.max = now;
+            }
+            charts['env_temp'].update('none');
+            charts['env_gas'].update('none');
+        }
+
+        machines.forEach(m => {
+            const chart = charts['mac_' + m.id];
+            if (chart) {
+                chart.data.datasets[0].data.push({ x: now, y: m.temp.value });
+                chart.data.datasets[1].data.push({ x: now, y: m.current.value });
+                const currentMin = chart.options.scales.x.min;
+                const currentMax = chart.options.scales.x.max;
+                if (now > currentMax - 30000 && currentMax > now - 60000) { 
+                    const range = currentMax - currentMin;
+                    chart.options.scales.x.min = now - range;
+                    chart.options.scales.x.max = now;
+                }
+                chart.update('none');
+            }
+        });
+    });
+
+    loadAnalytics();
+
+    setTimeout(() => initScrollReveal(), 100);
+    </script>
+</body>
+</html>

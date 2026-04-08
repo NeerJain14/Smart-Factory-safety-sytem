@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Smart Factory Safety System — Machine Configuration. Configure environment thresholds, deploy machines, and manage unit parameters.">
+    <title>Smart Factory Safety System — Machines</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="forge.css">
+    <style>
+    .env-config-block{background:var(--abyss);border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-bottom:2rem;position:relative}
+    .env-config-accent{height:2px;background:linear-gradient(90deg,var(--amber),transparent);box-shadow:0 0 12px var(--amber)}
+    .env-config-inner{padding:1.5rem 2rem}
+    .block-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.85rem;letter-spacing:.14em;color:var(--amber);margin-bottom:1.25rem}
+    .env-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.25rem}
+    .config-field{position:relative}
+    .config-field label{display:block;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:.65rem;letter-spacing:.12em;color:var(--t3);margin-bottom:4px}
+    .config-field input{width:100%;background:var(--pit);border:1px solid var(--border);border-radius:3px;color:var(--t1);font-family:'Share Tech Mono',monospace;font-size:.9rem;padding:8px 10px;outline:none;transition:border-color .25s}
+    .config-field input:focus{border-color:var(--amber)}
+    .modified-tag{position:absolute;top:0;right:0;font-family:'Share Tech Mono',monospace;font-size:.55rem;color:var(--amber);background:var(--amber-dim);border-radius:2px;padding:1px 6px;display:none}
+    .config-field[data-modified="true"] .modified-tag{display:inline}
+    .commit-btn{background:var(--amber-dim);border:1px solid var(--border-warn);color:var(--amber);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.82rem;letter-spacing:.1em;border-radius:3px;padding:10px 20px;cursor:pointer;transition:all .2s}
+    .commit-btn:hover{background:rgba(255,140,0,.2);box-shadow:0 0 18px var(--amber-glow)}
+    .register-row{display:flex;gap:1rem;align-items:center;margin-bottom:2rem;flex-wrap:wrap}
+    .register-input-group{display:flex;gap:.75rem;flex:1;flex-wrap:wrap}
+    .cmd-input{background:var(--pit);border:1px solid var(--border);border-radius:3px;color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:.82rem;padding:8px 12px;outline:none;flex:1;min-width:140px;transition:border-color .25s}
+    .cmd-input:focus{border-color:var(--cyan)}
+    .cmd-input::placeholder{color:var(--t3)}
+    .deploy-btn{background:var(--cyan-dim);border:1px solid var(--border-lit);color:var(--cyan);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.82rem;letter-spacing:.1em;border-radius:3px;padding:10px 20px;cursor:pointer;transition:all .2s;white-space:nowrap}
+    .deploy-btn:hover{background:rgba(0,240,255,.18);box-shadow:0 0 18px var(--cyan-glow)}
+    .machine-config-split{display:flex;gap:1.5rem;min-height:300px}
+    @media(max-width:768px){.machine-config-split{flex-direction:column}}
+    .machine-selector{width:280px;flex-shrink:0;display:flex;flex-direction:column;gap:6px}
+    @media(max-width:768px){.machine-selector{width:100%}}
+    .selector-bar{background:var(--abyss);border:1px solid var(--border);border-radius:3px;padding:.75rem 1rem;cursor:pointer;display:flex;align-items:center;gap:10px;transition:all .22s}
+    .selector-bar:hover,.selector-bar.active{border-color:var(--border-lit);background:var(--pit)}
+    .selector-bar.active{box-shadow:inset 3px 0 0 var(--cyan)}
+    .selector-dot{width:8px;height:8px;border-radius:50%;background:var(--safe);flex-shrink:0}
+    .selector-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.85rem;color:var(--t1)}
+    .selector-loc{font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--t3)}
+    .machine-config-detail{flex:1;background:var(--abyss);border:1px solid var(--border);border-radius:4px;padding:1.5rem;min-height:280px}
+    .detail-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:var(--t1);margin-bottom:1rem}
+    .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem}
+    .detail-field label{display:block;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:.65rem;letter-spacing:.12em;color:var(--t3);margin-bottom:4px}
+    .detail-field input,.detail-field select{width:100%;background:var(--pit);border:1px solid var(--border);border-radius:3px;color:var(--t1);font-family:'Share Tech Mono',monospace;font-size:.82rem;padding:7px 10px;outline:none;transition:border-color .25s}
+    .detail-field input:focus,.detail-field select:focus{border-color:var(--cyan)}
+    .update-btn{background:var(--cyan-dim);border:1px solid var(--border-lit);color:var(--cyan);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.82rem;letter-spacing:.1em;border-radius:3px;padding:10px 20px;cursor:pointer;width:100%;transition:all .2s}
+    .update-btn:hover{background:rgba(0,240,255,.18);box-shadow:0 0 18px var(--cyan-glow)}
+    .empty-detail{font-family:'Exo 2',sans-serif;color:var(--t3);font-size:.85rem;text-align:center;padding:3rem 0}
+    </style>
+</head>
+<body>
+    <canvas id="bg-canvas" style="position:fixed;inset:0;z-index:-2;pointer-events:none;opacity:0.38;"></canvas>
+    <div id="scanlines"></div><div id="alert-warning"></div><div id="alert-danger"></div>
+
+    <nav id="command-rail">
+        <div class="rail-logo"><svg width="42" height="42" viewBox="0 0 42 42"><polygon points="21,3 38,12 38,30 21,39 4,30 4,12" fill="none" stroke="var(--cyan)" stroke-width="1.2" opacity="0.8" style="animation:railLogoRotate 14s linear infinite;transform-origin:21px 21px;"/><text x="21" y="25" text-anchor="middle" fill="var(--cyan)" font-family="Share Tech Mono" font-size="8">SFSS</text></svg><span class="rail-logo-sub">SYS//01</span></div>
+        <div class="rail-nav">
+            <a href="dashboard.html" class="rail-btn" data-tip="Dashboard"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></a>
+            <a href="machines.html" class="rail-btn active" data-tip="Machines"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></a>
+            <a href="graphs.html" class="rail-btn" data-tip="Graphs"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12 Q6 6 12 12 Q18 6 22 12"/><path d="M2 18 Q6 12 12 18 Q18 12 22 18"/></svg></a>
+            <a href="analytics.html" class="rail-btn" data-tip="Analytics"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="21"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg></a>
+            <a href="control.html" class="rail-btn" data-tip="Control"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a5 5 0 0 1 0 10"/><circle cx="12" cy="12" r="1.5"/><line x1="12" y1="13.5" x2="12" y2="22"/></svg></a>
+            <a href="alerts.html" class="rail-btn" data-tip="Alerts"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.3 3.7a2 2 0 0 1 3.4 0L21 18H3L10.3 3.7Z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg></a>
+        </div>
+        <div class="rail-bottom"><div class="rail-avatar" id="user-avatar">??</div><button class="rail-logout" onclick="logout()" title="Logout"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button></div>
+    </nav>
+
+    <main class="content">
+        <h1 class="page-heading">SMART FACTORY SAFETY SYSTEM<span> // </span>UNIT CONFIG</h1>
+
+
+
+        <div class="env-config-block reveal">
+            <div class="env-config-accent"></div>
+            <div class="env-config-inner">
+                <h2 class="block-title">GLOBAL ENVIRONMENT THRESHOLDS</h2>
+                <div class="env-inputs">
+                    <div class="config-field" data-modified="false"><label>AMB. TEMP LIMIT (°C)</label><input type="number" id="env-temp-limit" value="60"><span class="modified-tag">MODIFIED</span></div>
+                    <div class="config-field" data-modified="false"><label>GAS LEVEL LIMIT (ppm)</label><input type="number" id="env-gas-limit" value="40"><span class="modified-tag">MODIFIED</span></div>
+                </div>
+                <button class="commit-btn" onclick="updateEnvThresholds()">▶ COMMIT THRESHOLD UPDATE</button>
+            </div>
+        </div>
+
+        <div class="register-row reveal">
+            <div class="register-input-group">
+                <input type="text" class="cmd-input" placeholder="> machine_name..." id="new-name">
+                <input type="text" class="cmd-input" placeholder="> machine_type..." id="new-type">
+                <input type="text" class="cmd-input" placeholder="> location..." id="new-loc">
+            </div>
+            <button class="deploy-btn" onclick="deployMachine()">DEPLOY UNIT ▶▶</button>
+        </div>
+
+        <div class="machine-config-split">
+            <div class="machine-selector" id="machine-selector"></div>
+            <div class="machine-config-detail" id="machine-detail"><div class="empty-detail">SELECT A MACHINE TO CONFIGURE</div></div>
+        </div>
+    </main>
+
+    <script src="forge.js"></script>
+    <script>
+    const auth = getAuthInfo();
+    if (!auth) throw 'No auth';
+    const { userId, simParam, isSim } = auth;
+
+    let envId = null;
+    let machines = [];
+    let selectedMachineId = null;
+    let rules = [];
+    let autoPilot = true;
+
+    async function loadEnvData() {
+        try {
+            const res = await fetch(`/api/environments?user_id=${userId}${simParam}`);
+            const data = await res.json();
+            if (data.success && data.data.length > 0) {
+                const env = data.data[0];
+                envId = env.env_id;
+                document.getElementById('env-temp-limit').value = env.temperature_limit || 60;
+                document.getElementById('env-gas-limit').value = env.gas_limit || 40;
+            }
+        } catch(e) {}
+    }
+
+    async function updateEnvThresholds() {
+        if (!envId) return alert('No environment found');
+        const body = { user_id: userId, temperature_limit: +document.getElementById('env-temp-limit').value, gas_limit: +document.getElementById('env-gas-limit').value };
+        if (isSim) body.is_sim = true;
+        await fetch(`/api/environments/${envId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+        document.querySelectorAll('.config-field').forEach(f => f.dataset.modified = 'false');
+    }
+
+    async function loadMachines() {
+        try {
+            const res = await fetch(`/api/machines?user_id=${userId}${simParam}`);
+            const data = await res.json();
+            if (data.success) { machines = data.data; renderSelector(); }
+        } catch(e) {}
+    }
+
+    function renderSelector() {
+        const sel = document.getElementById('machine-selector');
+        sel.innerHTML = machines.map(m => `
+            <div class="selector-bar ${m.machine_id === selectedMachineId ? 'active' : ''}" onclick="selectMachine(${m.machine_id})">
+                <div class="selector-dot" style="background:var(--${m.status==='active'?'safe':'t3'})"></div>
+                <div><div class="selector-name">${m.machine_name}</div><div class="selector-loc">${m.location || 'N/A'}</div></div>
+            </div>
+        `).join('') || '<div class="empty-detail">No machines deployed</div>';
+    }
+
+    function selectMachine(id) {
+        selectedMachineId = id;
+        renderSelector();
+        const m = machines.find(x => x.machine_id === id);
+        if (!m) return;
+        document.getElementById('machine-detail').innerHTML = `
+            <div class="detail-title">${m.machine_name}</div>
+            <div class="detail-grid">
+                <div class="detail-field"><label>MACHINE NAME</label><input type="text" id="det-name" value="${m.machine_name}"></div>
+                <div class="detail-field"><label>TYPE</label><input type="text" id="det-type" value="${m.machine_type || ''}"></div>
+                <div class="detail-field"><label>LOCATION</label><input type="text" id="det-loc" value="${m.location || ''}"></div>
+                <div class="detail-field"><label>STATUS</label><select id="det-status"><option value="active" ${m.status==='active'?'selected':''}>ACTIVE</option><option value="inactive" ${m.status==='inactive'?'selected':''}>INACTIVE</option></select></div>
+                <div class="detail-field"><label>TEMP LIMIT (°C)</label><input type="number" id="det-tlimit" value="${m.temp_limit || 50}"></div>
+                <div class="detail-field"><label>CURRENT LIMIT (A)</label><input type="number" id="det-climit" value="${m.current_limit || 30}"></div>
+            </div>
+            <button class="update-btn" onclick="updateMachine(${m.machine_id})">▶ UPDATE CONFIGURATION</button>
+        `;
+    }
+
+    async function updateMachine(id) {
+        const body = { user_id:userId, machine_name:document.getElementById('det-name').value, machine_type:document.getElementById('det-type').value, location:document.getElementById('det-loc').value, status:document.getElementById('det-status').value, temp_limit:+document.getElementById('det-tlimit').value, current_limit:+document.getElementById('det-climit').value };
+        if (isSim) body.is_sim = true;
+        await fetch(`/api/machines/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+        loadMachines();
+    }
+
+    async function deployMachine() {
+        const name = document.getElementById('new-name').value.trim();
+        const type = document.getElementById('new-type').value.trim() || 'General';
+        const loc = document.getElementById('new-loc').value.trim();
+        if (!name) return alert('Machine name required');
+        if (!envId) return alert('No environment found — wait for data load');
+        const body = { user_id:userId, machine_name:name, machine_type:type, location:loc, env_id:envId };
+        if (isSim) body.is_sim = true;
+        await fetch('/api/machines', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+        document.getElementById('new-name').value = '';
+        document.getElementById('new-type').value = '';
+        document.getElementById('new-loc').value = '';
+        loadMachines();
+    }
+
+    loadEnvData();
+    loadMachines();
+    setTimeout(() => initScrollReveal(), 100);
+    </script>
+</body>
+</html>
