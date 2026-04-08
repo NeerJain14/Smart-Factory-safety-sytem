@@ -85,7 +85,7 @@
     \vspace{1cm}
     \textbf{GitHub Link:} \url{https://github.com/loq/factory/}
     \newline
-    \textbf{Deployed Link:} \url{http://localhost:3000/}
+    \textbf{Deployed Link:} \url{http://localhost:3001/}
 
 \end{titlepage}
 
@@ -329,10 +329,11 @@ SELECT status, COUNT(*) as total FROM env_readings GROUP BY status;
 \section{Project Demonstration}
 \textbf{Tools / Software / Libraries Used:}
 \begin{itemize}
-    \item \textbf{Backend:} Node.js (v18), Express, WebSockets (ws package)
-    \item \textbf{Database:} MySQL 8.0, connection pooling via MySQL2
-    \item \textbf{Frontend:} Pure ES6+ JS, Forge CSS UI, Custom HUD
-    \item \textbf{Hardware Simulator:} Stochastic Simulation Engine
+    \item \textbf{Backend:} Node.js (v18+), Express, WebSockets (ws package)
+    \item \textbf{Database:} MySQL 8.0, Connection Pooling (mysql2)
+    \item \textbf{Frontend:} Vanilla ES6+ JS, Forge CSS, Responsive HUD
+    \item \textbf{Connectivity:} "Eternal Link" logic (Exponential Backoff + Visibility Sync)
+    \item \textbf{Hardware:} ESP32 (simulated/physical) with C++ Ingestion Link
 \end{itemize}
 
 \textbf{Description of Demonstration:} The demonstration showcases a live dashboard where environment gauges fluctuate in real-time. By injecting a "Fire Spike" via the Simulation Engine, the system demonstrates an immediate state-change: the "Forge Safety Engine" triggers a WebSocket command to the (virtual) ESP32, activating the Cooling Fan and logging a high-severity alert in the MySQL database.
@@ -341,7 +342,8 @@ SELECT status, COUNT(*) as total FROM env_readings GROUP BY status;
 \section{Self-Learning Beyond Classroom}
 \begin{itemize}
     \item \textbf{High-Frequency DB Throttling:} We discovered that inserting 20 sensor packets per second leads to connection pool exhaustion on mobile hotspots. We implemented a 2.5-second logging gap to stabilize the database without sacrificing live UI speed.
-    \item \textbf{WebSocket Heartbeats:} We implemented a custom Ping/Pong mechanism to prune "zombie" connections, ensuring high availability during network instability.
+    \item \textbf{Eternal Link Connectivity:} We implemented a robust "Eternal Link" system using exponential backoff (1s to 10s) and Visibility API listeners. This ensures the dashboard instantly reclaims its session the moment a user switches back to the tab, even on unstable industrial networks.
+    \item \textbf{Active Pulse Pruning:} We implemented a server-side heartbeat mechanism to prune "zombie" connections, ensuring high availability and memory optimization during prolonged operation.
 \end{itemize}
 
 % --- IX. LEARNING FROM THE PROJECT ---
