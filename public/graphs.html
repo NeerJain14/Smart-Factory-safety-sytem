@@ -183,19 +183,30 @@
 
     async function loadAnalytics() {
         try {
-            const res = await fetch(`/api/sensors/analytics/24h?user_id=${auth.userId}${auth.simParam}`);
-            const json = await res.json();
-            if (!json.success) return;
-            const data = json.data;
+            const [anaRes, macRes] = await Promise.all([
+                fetch(`/api/sensors/analytics/24h?user_id=${auth.userId}${auth.simParam}`),
+                fetch(`/api/machines?user_id=${auth.userId}${auth.simParam}`)
+            ]);
+            const anaJson = await anaRes.json();
+            const macJson = await macRes.json();
+            
+            if (!anaJson.success || !macJson.success) return;
+            const data = anaJson.data;
+            const allMachines = macJson.data;
 
             const envData = [];
             const machineData = {};
+            
+            // Initialize every single machine found in the DB (Universal Persistence)
+            allMachines.forEach(m => {
+                machineData[m.machine_id] = { name: m.machine_name, records: [] };
+            });
+
             data.forEach(row => {
                 const ts = new Date(row.timestamp).getTime();
                 if (row.machine_id === null) {
                     envData.push({ ts, temp: row.temperature_value, gas: row.gas_value });
-                } else {
-                    if (!machineData[row.machine_id]) machineData[row.machine_id] = { name: row.sensor_name.split(' ')[0], records: [] };
+                } else if (machineData[row.machine_id]) {
                     machineData[row.machine_id].records.push({ ts, temp: row.temperature_value, cur: row.current_value });
                 }
             });
@@ -210,13 +221,14 @@
                 ${buildChartHTML('env_gas', 'AIR QUALITY MATRIX (24H)', '<span class="thresh warn">— Gas Level (ppm)</span>')}
             </div>`;
             
-            // Build HTML for Machine Graphs (side-by-side)
+            // Build HTML for Machine Graphs (Side-by-side for ALL machines)
             const machineIds = Object.keys(machineData);
             if (machineIds.length > 0) {
                 fullHtml += `<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">`;
                 machineIds.forEach(mId => {
                     const mInfo = machineData[mId];
-                    const hintsMac = `<span class="thresh safe">— Temp (C)</span> <span class="thresh danger">— Current (A)</span>`;
+                    const hintSuffix = mInfo.records.length === 0 ? ' <span class="thresh danger">(NO RECENT DATA)</span>' : '';
+                    const hintsMac = `<span class="thresh safe">— Temp (C)</span> <span class="thresh danger">— Current (A)</span>${hintSuffix}`;
                     fullHtml += buildChartHTML('mac_' + mId, `MACHINE OPERATIONS: ${mInfo.name.toUpperCase()} (24H)`, hintsMac);
                 });
                 fullHtml += `</div>`;

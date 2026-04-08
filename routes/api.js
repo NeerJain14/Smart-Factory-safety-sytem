@@ -34,6 +34,12 @@ router.post('/auth/login', async (req, res) => {
 router.post('/auth/register', async (req, res) => {
     const { name, email, password, role = 'operator' } = req.body;
     if (!name || !email || !password) return res.status(400).json({ success: false, message: 'Missing fields' });
+    
+    // Strict name validation (Alphabets/Spaces only)
+    if (!/^[A-Za-z\s]+$/.test(name)) {
+        return res.status(400).json({ success: false, message: 'Invalid name format. Only alphabets allowed.' });
+    }
+
     let conn;
     try {
         conn = await pool.getConnection();
@@ -261,15 +267,17 @@ router.get('/alerts', async (req, res) => {
     if (!user_id) return res.status(400).json({ error: 'user_id is required' });
     try {
         const sql = `
-            SELECT alert_id, user_id, sensor_type as alert_type, severity as alert_level,
-                   CONCAT('Limit crossed: ', sensor_type, ' @ ', ROUND(reading_value,1)) as alert_message,
-                   triggered_at as timestamp,
-                   instance_id as machine_id,
-                   reading_value as value,
-                   sensor_type as sensor_name
-            FROM alerts
-            WHERE user_id = ? AND is_simulation = ?
-            ORDER BY triggered_at DESC
+            SELECT a.alert_id, a.user_id, a.sensor_type as alert_type, a.severity as alert_level,
+                   CONCAT('Limit crossed: ', a.sensor_type, ' @ ', ROUND(a.reading_value,1)) as alert_message,
+                   a.triggered_at as timestamp,
+                   a.instance_id as machine_id,
+                   m.instance_name as machine_name,
+                   a.reading_value as value,
+                   a.sensor_type as sensor_name
+            FROM alerts a
+            LEFT JOIN machine_instances m ON a.instance_id = m.instance_id
+            WHERE a.user_id = ? AND a.is_simulation = ?
+            ORDER BY a.triggered_at DESC
             LIMIT 100
         `;
         const [rows] = await pool.query(sql, [user_id, isSim]);

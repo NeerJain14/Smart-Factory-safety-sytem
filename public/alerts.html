@@ -80,8 +80,11 @@
         const side = alertIdx % 2 === 0 ? 'left' : 'right';
         alertIdx++;
         const sev = alert.severity === 'DANGER' ? 'critical' : 'warning';
+        
+        // Dynamic Source Identification
+        let sourceLabel = (alert.source || '').includes('ENV') ? 'GLOBAL ENV' : 'MACHINE';
+        if (alert.machine_name) sourceLabel = alert.machine_name.toUpperCase();
         const sourceClass = (alert.source || '').includes('ENV') ? 'env' : 'mach';
-        const sourceLabel = (alert.source || '').includes('ENV') ? 'GLOBAL ENV' : 'MACHINE';
 
         const card = document.createElement('div');
         card.className = `alert-card ${side} ${sev}-card`;
@@ -133,7 +136,8 @@
                     type: (a.alert_type || 'ALERT').toUpperCase(),
                     severity: a.alert_level === 'CRITICAL' ? 'DANGER' : 'WARNING',
                     message: a.alert_message || '',
-                    source: a.machine_id ? 'MACHINE' : 'GLOBAL ENV'
+                    source: a.machine_id ? 'MACHINE' : 'GLOBAL ENV',
+                    machine_name: a.machine_name
                 })));
             }
             if (actData.success) {

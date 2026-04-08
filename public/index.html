@@ -118,6 +118,15 @@
         const errEl = document.getElementById('reg-error');
         const sucEl = document.getElementById('reg-success');
         errEl.classList.add('hidden'); sucEl.classList.add('hidden');
+
+        // Username Validation: Alphabets only
+        const nameRegex = /^[A-Za-z\s]+$/;
+        if (!nameRegex.test(name)) {
+            errEl.textContent = 'ERROR: Operator Name must ONLY contain alphabets (A-Z). No symbols or numbers tolerated.';
+            errEl.classList.remove('hidden');
+            return;
+        }
+
         try {
             const res = await fetch('/api/auth/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name,email,password}) });
             const data = await res.json();
