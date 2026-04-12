@@ -47,6 +47,8 @@ class FactoryIngest {
                 conn = null;
             }
 
+            const { envLimits, mRows } = cache;
+
             // 2. LOGGING THROTTLE: Prevent DB flooding on slow hotspots
             // We still return {success:true} for the WebSocket broadcast, but skip DB inserts
             const lastLog = this.lastLogTimes[userId] || 0;

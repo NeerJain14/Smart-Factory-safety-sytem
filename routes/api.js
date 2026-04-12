@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const crypto = require('crypto');
 const factoryIngest = require('../services/factory_ingest');
 const simulationService = require('../services/simulation');
+const { sendWorkerApprovalEmail } = require('../services/email_service');
 
 function isSimReq(req) {
     const q = req.query || {};
@@ -10,19 +12,30 @@ function isSimReq(req) {
     return q.is_sim === 'true' || q.is_sim === true || b.is_sim === true || b.is_sim === 'true';
 }
 
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3001';
+
 // ═══════════════ AUTH ═══════════════
 
 router.post('/auth/login', async (req, res) => {
     const { email, password } = req.body;
     try {
         const [rows] = await pool.query(
-            'SELECT user_id, username as name, email, role FROM users WHERE email = ? AND password_hash = ? AND deleted_at IS NULL',
+            'SELECT user_id, username as name, email, role, factory_id, status FROM users WHERE email = ? AND password_hash = ? AND deleted_at IS NULL',
             [email, password]
         );
         if (rows.length > 0) {
             const user = rows[0];
+
+            // Check account status
+            if (user.status === 'pending') {
+                return res.status(403).json({ success: false, message: 'Your account is awaiting Admin approval. Please check back later.' });
+            }
+            if (user.status === 'rejected') {
+                return res.status(403).json({ success: false, message: 'Your access request was denied by the factory Admin.' });
+            }
+
             await pool.query('UPDATE users SET last_login_at = NOW() WHERE user_id = ?', [user.user_id]);
-            res.json({ success: true, message: 'Logged in', user });
+            res.json({ success: true, message: 'Logged in', user: { user_id: user.user_id, name: user.name, email: user.email, role: user.role, factory_id: user.factory_id } });
         } else {
             res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
@@ -32,36 +45,179 @@ router.post('/auth/login', async (req, res) => {
 });
 
 router.post('/auth/register', async (req, res) => {
-    const { name, email, password, role = 'operator' } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ success: false, message: 'Missing fields' });
-    
+    const { name, email, password, role, factory_id } = req.body;
+    if (!name || !email || !password || !role || !factory_id) {
+        return res.status(400).json({ success: false, message: 'All fields are required.' });
+    }
+
     // Strict name validation (Alphabets/Spaces only)
     if (!/^[A-Za-z\s]+$/.test(name)) {
         return res.status(400).json({ success: false, message: 'Invalid name format. Only alphabets allowed.' });
     }
 
+    // Gmail-only enforcement
+    if (!email.toLowerCase().endsWith('@gmail.com')) {
+        return res.status(400).json({ success: false, message: 'Only @gmail.com email addresses are accepted.' });
+    }
+
+    // Validate role
+    if (role !== 'admin' && role !== 'worker') {
+        return res.status(400).json({ success: false, message: 'Invalid role. Must be admin or worker.' });
+    }
+
     let conn;
     try {
         conn = await pool.getConnection();
-        const [result] = await conn.query(
-            'INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)',
-            [name, email, password, role]
-        );
-        const userId = result.insertId;
 
-        // Provision default limits
-        const sensors = ['temperature', 'gas', 'fire', 'proximity'];
-        for (const s of sensors) {
-            await conn.query(`INSERT INTO env_thresholds (user_id, sensor_type, warning_threshold, danger_threshold) VALUES (?, ?, 50, 60)`, [userId, s]);
+        if (role === 'admin') {
+            // Check if factory_id is already taken by another admin
+            const [existing] = await conn.query(
+                "SELECT user_id FROM users WHERE factory_id = ? AND role = 'admin' AND deleted_at IS NULL",
+                [factory_id]
+            );
+            if (existing.length > 0) {
+                return res.status(409).json({ success: false, message: 'This Factory ID is already registered to another Admin.' });
+            }
+
+            // Create admin immediately as active
+            const [result] = await conn.query(
+                "INSERT INTO users (username, email, password_hash, role, factory_id, status) VALUES (?, ?, ?, 'admin', ?, 'active')",
+                [name, email, password, factory_id]
+            );
+            const userId = result.insertId;
+
+            // Provision default env thresholds
+            const sensors = ['temperature', 'gas', 'fire', 'proximity'];
+            for (const s of sensors) {
+                await conn.query('INSERT INTO env_thresholds (user_id, sensor_type, warning_threshold, danger_threshold) VALUES (?, ?, 50, 60)', [userId, s]);
+            }
+
+            res.json({ success: true, message: 'Admin account created! You can log in now.', user_id: userId });
+
+        } else {
+            // Worker registration
+            // Check that the factory_id exists and belongs to an admin
+            const [adminRows] = await conn.query(
+                "SELECT user_id, email, username FROM users WHERE factory_id = ? AND role = 'admin' AND deleted_at IS NULL",
+                [factory_id]
+            );
+            if (adminRows.length === 0) {
+                return res.status(404).json({ success: false, message: 'Factory ID not found. Please verify the ID with your factory Admin.' });
+            }
+
+            const admin = adminRows[0];
+            const approvalToken = crypto.randomBytes(48).toString('hex');
+
+            // Create worker as pending
+            const [result] = await conn.query(
+                "INSERT INTO users (username, email, password_hash, role, factory_id, status, approval_token) VALUES (?, ?, ?, 'worker', ?, 'pending', ?)",
+                [name, email, password, factory_id, approvalToken]
+            );
+
+            // Send approval email to admin
+            const approveUrl = `${BASE_URL}/api/auth/approve/${approvalToken}`;
+            const rejectUrl = `${BASE_URL}/api/auth/reject/${approvalToken}`;
+
+            try {
+                await sendWorkerApprovalEmail(admin.email, name, email, approveUrl, rejectUrl);
+            } catch (emailErr) {
+                console.error('[EMAIL] Failed to send approval email:', emailErr.message);
+                // Registration still succeeds even if email fails — admin can check DB
+            }
+
+            res.json({ success: true, message: 'Registration submitted! Your account is pending approval by the factory Admin. You will be able to log in once approved.' });
         }
-        res.json({ success: true, message: 'Registered successfully', user_id: userId });
     } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') res.status(409).json({ success: false, message: 'Email exists' });
-        else res.status(500).json({ error: err.message });
+        if (err.code === 'ER_DUP_ENTRY') {
+            res.status(409).json({ success: false, message: 'This email address is already registered.' });
+        } else {
+            res.status(500).json({ error: err.message });
+        }
     } finally {
         if (conn) conn.release();
     }
 });
+
+// ═══════════════ WORKER APPROVAL/REJECTION (Token-based) ═══════════════
+
+router.get('/auth/approve/:token', async (req, res) => {
+    const { token } = req.params;
+    try {
+        const [rows] = await pool.query(
+            "SELECT user_id, username, email, factory_id FROM users WHERE approval_token = ? AND status = 'pending'",
+            [token]
+        );
+        if (rows.length === 0) {
+            return res.send(buildResponsePage('Invalid or Expired Link', 'This approval link is no longer valid. The worker may have already been approved or rejected.', false));
+        }
+
+        const worker = rows[0];
+
+        // Activate the worker
+        await pool.query(
+            "UPDATE users SET status = 'active', approval_token = NULL WHERE user_id = ?",
+            [worker.user_id]
+        );
+
+        // Provision default env thresholds for the worker (they share factory data via factory_id)
+        const [existing] = await pool.query('SELECT sensor_type FROM env_thresholds WHERE user_id = ?', [worker.user_id]);
+        if (existing.length === 0) {
+            const sensors = ['temperature', 'gas', 'fire', 'proximity'];
+            for (const s of sensors) {
+                await pool.query('INSERT INTO env_thresholds (user_id, sensor_type, warning_threshold, danger_threshold) VALUES (?, ?, 50, 60)', [worker.user_id, s]);
+            }
+        }
+
+        res.send(buildResponsePage('Worker Approved', `<strong>${worker.username}</strong> (${worker.email}) has been granted access to your factory.`, true));
+    } catch (err) {
+        res.status(500).send(buildResponsePage('Error', 'An internal error occurred. Please try again.', false));
+    }
+});
+
+router.get('/auth/reject/:token', async (req, res) => {
+    const { token } = req.params;
+    try {
+        const [rows] = await pool.query(
+            "SELECT user_id, username, email FROM users WHERE approval_token = ? AND status = 'pending'",
+            [token]
+        );
+        if (rows.length === 0) {
+            return res.send(buildResponsePage('Invalid or Expired Link', 'This rejection link is no longer valid. The worker may have already been approved or rejected.', false));
+        }
+
+        const worker = rows[0];
+
+        await pool.query(
+            "UPDATE users SET status = 'rejected', approval_token = NULL WHERE user_id = ?",
+            [worker.user_id]
+        );
+
+        res.send(buildResponsePage('Worker Rejected', `Access for <strong>${worker.username}</strong> (${worker.email}) has been denied.`, false));
+    } catch (err) {
+        res.status(500).send(buildResponsePage('Error', 'An internal error occurred. Please try again.', false));
+    }
+});
+
+function buildResponsePage(title, message, isSuccess) {
+    const color = isSuccess ? '#00e676' : '#ff1744';
+    const icon = isSuccess ? '✓' : '✗';
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>SFSS — ${title}</title>
+    <style>
+        body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0e14;font-family:'Segoe UI',Arial,sans-serif;color:#c5cdd8;}
+        .card{background:#111820;border:1px solid #1e2a38;border-radius:8px;padding:48px 40px;max-width:420px;text-align:center;}
+        .icon{font-size:56px;color:${color};margin-bottom:12px;}
+        h1{font-size:20px;letter-spacing:2px;color:${color};margin:0 0 16px;}
+        p{font-size:14px;line-height:1.7;color:#8a9ab0;margin:0;}
+        p strong{color:#e0e8f0;}
+        .sub{margin-top:24px;font-size:11px;color:#3a4a5a;letter-spacing:1px;}
+    </style></head><body>
+    <div class="card">
+        <div class="icon">${icon}</div>
+        <h1>${title.toUpperCase()}</h1>
+        <p>${message}</p>
+        <p class="sub">SMART FACTORY SAFETY SYSTEM</p>
+    </div></body></html>`;
+}
 
 router.post('/auth/simulation', async (req, res) => {
     try {
@@ -69,8 +225,8 @@ router.post('/auth/simulation', async (req, res) => {
         let user;
         if (rows.length > 0) user = rows[0];
         else {
-            const [r] = await pool.query('INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)', ['Simulation', 'sim@factory.com', 'sim', 'operator']);
-            user = { user_id: r.insertId, name: 'Simulation', email: 'sim@factory.com', role: 'operator' };
+            const [r] = await pool.query("INSERT INTO users (username, email, password_hash, role, status) VALUES (?, ?, ?, 'worker', 'active')", ['Simulation', 'sim@factory.com', 'sim']);
+            user = { user_id: r.insertId, name: 'Simulation', email: 'sim@factory.com', role: 'worker' };
         }
 
         const [mRows] = await pool.query('SELECT instance_id FROM machine_instances WHERE user_id = ?', [user.user_id]);

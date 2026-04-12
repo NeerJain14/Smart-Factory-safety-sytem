@@ -52,6 +52,17 @@
     .log-row{display:grid;grid-template-columns:90px 1fr 80px 60px;gap:1rem;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.02);animation:rowSlideIn .22s ease}
     .log-row:nth-child(even){background:rgba(255,255,255,.015)}
     .log-row .ts{color:var(--t3)} .log-row .act{color:var(--cyan)} .log-row .cmd{color:var(--t1)} .log-row .trg{color:var(--amber)}
+    .log-row .ts{color:var(--t3)} .log-row .act{color:var(--cyan)} .log-row .cmd{color:var(--t1)} .log-row .trg{color:var(--amber)}
+    .worker-restricted { filter:grayscale(1) blur(1.5px); opacity:0.4; pointer-events:none; }
+    .restrict-overlay { position:absolute; inset:-5px; z-index:10; cursor:not-allowed; }
+    .worker-msg { position:absolute; top:-35px; left:50%; transform:translateX(-50%); background:var(--abyss); border:1px solid var(--amber); color:var(--amber); font-family:'Share Tech Mono',monospace; font-size:0.75rem; padding:6px 10px; border-radius:3px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity 0.2s; z-index:20; box-shadow:0 4px 12px rgba(0,0,0,0.5); }
+    .worker-msg.show { opacity:1; }
+    .restrict-wrap { position:relative; }
+    .restrict-wrap-inline { position:relative; display:inline-block; }
+    .admin-lock-banner { display:none; align-items:center; justify-content:center; gap:10px; background:linear-gradient(135deg, rgba(255,171,0,0.08), rgba(255,23,68,0.08)); border:1.5px solid var(--amber); border-radius:4px; padding:14px 18px; margin-top:auto; animation:lockPulse 2.5s ease-in-out infinite; }
+    .admin-lock-banner .lock-icon { font-size:1.2rem; }
+    .admin-lock-banner .lock-text { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.95rem; letter-spacing:0.14em; background:linear-gradient(90deg, var(--amber), var(--danger)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    @keyframes lockPulse { 0%,100%{ border-color:var(--amber); box-shadow:0 0 8px rgba(255,171,0,0.15); } 50%{ border-color:var(--danger); box-shadow:0 0 16px rgba(255,23,68,0.2); } }
     </style>
 </head>
 <body>
@@ -90,9 +101,14 @@
                 </div>
                 <div class="panel-info"><div class="panel-name">THERMAL REGULATION UNIT</div><div class="panel-sub">Cooling Fan Array — Zone A</div></div>
                 <div class="toggle-row">
-                    <div class="ind-toggle" id="toggle-fan" onclick="toggleFan()"><div class="toggle-knob"></div></div>
+                    <div class="restrict-wrap-inline">
+                        <div class="restrict-overlay hidden" id="overlay-fan" onclick="showWorkerMsg('msg-fan')"></div>
+                        <div class="worker-msg" id="msg-fan">Admin access required</div>
+                        <div class="ind-toggle" id="toggle-fan" onclick="toggleFan()"><div class="toggle-knob"></div></div>
+                    </div>
                     <span class="toggle-status offline" id="fan-status-text">■ OFFLINE</span>
                 </div>
+                <div class="admin-lock-banner" id="lock-fan"><span class="lock-icon">🔒</span><span class="lock-text">ADMIN ACCESS REQUIRED</span></div>
             </div>
 
             <div class="actuator-panel reveal danger-panel" id="panel-power">
@@ -102,13 +118,18 @@
                 </div>
                 <div class="panel-info"><div class="panel-name">POWER INTERRUPTION SYSTEM</div><div class="panel-sub">Emergency Grid Cutoff — Full Facility</div></div>
                 <div class="shutdown-area">
-                    <div class="engage-btn" id="engage-shutdown" onclick="initiateShutdown()"><span>INITIATE</span><div class="engage-inner-ring"></div></div>
+                    <div class="restrict-wrap-inline">
+                        <div class="restrict-overlay hidden" id="overlay-power" onclick="showWorkerMsg('msg-power')" style="inset:-10px; border-radius:50%;"></div>
+                        <div class="worker-msg" id="msg-power">Admin access required</div>
+                        <div class="engage-btn" id="engage-shutdown" onclick="initiateShutdown()"><span>INITIATE</span><div class="engage-inner-ring"></div></div>
+                    </div>
                     <div class="shutdown-confirm hidden" id="shutdown-confirm">
                         <div class="countdown-bar-track"><div class="countdown-bar-fill" id="countdown-fill"></div></div>
                         <div class="countdown-text" id="countdown-text">EXECUTING IN 3s</div>
                         <button class="abort-btn" onclick="abortShutdown()">ABORT</button>
                     </div>
                 </div>
+                <div class="admin-lock-banner" id="lock-power"><span class="lock-icon">🔒</span><span class="lock-text">ADMIN ACCESS REQUIRED</span></div>
             </div>
 
             <div class="actuator-panel reveal" id="panel-lcd">
@@ -117,11 +138,18 @@
                     <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><rect x="6" y="10" width="36" height="24" rx="2" stroke="var(--safe)" stroke-width="1.5"/><line x1="12" y1="38" x2="36" y2="38" stroke="var(--safe)" stroke-width="1.5"/><line x1="24" y1="34" x2="24" y2="38" stroke="var(--safe)" stroke-width="1.5"/><text x="24" y="26" text-anchor="middle" font-family="Share Tech Mono" font-size="8" fill="var(--safe)">TX</text></svg>
                 </div>
                 <div class="panel-info"><div class="panel-name">COMMS TRANSMITTER</div><div class="panel-sub">LCD Floor Display — All Sectors</div></div>
-                <div class="terminal-compose">
-                    <div class="term-prompt">TX:&gt;&nbsp;<input class="term-input" id="lcd-input" maxlength="32" placeholder="enter message..."><span class="term-cursor">█</span></div>
-                    <div class="term-charcount"><span id="char-count">0</span>/32</div>
+                <div class="restrict-wrap" style="display:flex; flex-direction:column; gap:1.25rem; flex:1;">
+                    <div class="restrict-overlay hidden" id="overlay-lcd" onclick="showWorkerMsg('msg-lcd')"></div>
+                    <div class="worker-msg" id="msg-lcd">Admin access required</div>
+                    <div id="wrap-lcd" style="display:flex; flex-direction:column; gap:1.25rem; flex:1;">
+                        <div class="terminal-compose">
+                            <div class="term-prompt">TX:&gt;&nbsp;<input class="term-input" id="lcd-input" maxlength="32" placeholder="enter message..."><span class="term-cursor">█</span></div>
+                            <div class="term-charcount"><span id="char-count">0</span>/32</div>
+                        </div>
+                        <button class="transmit-btn" onclick="transmitLCD()">▶▶ BROADCAST</button>
+                    </div>
                 </div>
-                <button class="transmit-btn" onclick="transmitLCD()">▶▶ BROADCAST</button>
+                <div class="admin-lock-banner" id="lock-lcd"><span class="lock-icon">🔒</span><span class="lock-text">ADMIN ACCESS REQUIRED</span></div>
             </div>
         </div>
 
@@ -134,6 +162,30 @@
     const auth = getAuthInfo();
     if (!auth) throw 'No auth';
     const { userId, simParam, isSim } = auth;
+
+    const rawUser = sessionStorage.getItem('user');
+    const userRole = rawUser ? (JSON.parse(rawUser).role || 'admin') : 'admin';
+    const isWorker = userRole === 'Worker' || userRole === 'worker';
+
+    function showWorkerMsg(id) {
+        const msg = document.getElementById(id);
+        msg.classList.add('show');
+        setTimeout(() => msg.classList.remove('show'), 2500);
+    }
+
+    if (isWorker) {
+        document.getElementById('toggle-fan').classList.add('worker-restricted');
+        document.getElementById('overlay-fan').classList.remove('hidden');
+        document.getElementById('lock-fan').style.display = 'flex';
+
+        document.getElementById('engage-shutdown').classList.add('worker-restricted');
+        document.getElementById('overlay-power').classList.remove('hidden');
+        document.getElementById('lock-power').style.display = 'flex';
+
+        document.getElementById('wrap-lcd').classList.add('worker-restricted');
+        document.getElementById('overlay-lcd').classList.remove('hidden');
+        document.getElementById('lock-lcd').style.display = 'flex';
+    }
 
     let fanOn = false;
     let actuators = {};

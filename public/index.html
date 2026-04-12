@@ -11,7 +11,7 @@
     <style>
     .auth-stage { position:relative; min-height:100vh; display:flex; align-items:center; justify-content:center; margin-left:0; }
     .auth-hex-ring { position:absolute; width:500px; height:500px; pointer-events:none; }
-    .auth-panel { position:relative; width:400px; max-width:95vw; background:var(--abyss); border:1px solid var(--border-lit); border-radius:4px; padding:2.5rem; }
+    .auth-panel { position:relative; width:420px; max-width:95vw; background:var(--abyss); border:1px solid var(--border-lit); border-radius:4px; padding:2.5rem; }
     .auth-decrypt-line { font-family:'Share Tech Mono',monospace; font-size:0.65rem; color:var(--cyan); letter-spacing:0.1em; margin-bottom:1.75rem; opacity:0.8; }
     .auth-tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:2rem; gap:0; }
     .auth-tab { flex:1; background:transparent; border:none; border-bottom:2px solid transparent; padding:8px 4px; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.78rem; letter-spacing:0.1em; color:var(--t3); cursor:pointer; transition:all 0.22s; margin-bottom:-1px; }
@@ -26,12 +26,20 @@
     .auth-btn { width:100%; clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%); background:linear-gradient(90deg,var(--cyan),#0088ff); color:var(--void); font-family:'Rajdhani',sans-serif; font-weight:700; font-size:1rem; letter-spacing:0.12em; border:none; padding:13px; cursor:pointer; margin-top:0.5rem; transition:all 0.18s; }
     .auth-btn:hover { transform:translateY(-1px); box-shadow:0 8px 28px var(--cyan-glow); }
     .auth-btn:active { transform:translateY(1px); box-shadow:none; }
+    .auth-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; box-shadow:none; }
     .sim-btn { background:transparent; border:2px solid var(--amber); color:var(--amber); clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%); }
     .sim-btn:hover { background:var(--amber-dim); box-shadow:0 8px 28px var(--amber-glow); }
     .sim-warning-block { background:var(--amber-dim); border:1px solid var(--border-warn); border-radius:4px; padding:1rem; margin-bottom:1.5rem; font-family:'Exo 2',sans-serif; font-size:0.85rem; color:var(--amber); line-height:1.5; }
     .sim-warning-title { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.9rem; letter-spacing:0.1em; margin-bottom:0.5rem; }
     .auth-error { font-family:'Share Tech Mono',monospace; font-size:0.75rem; color:var(--danger); text-align:center; margin-top:0.75rem; }
     .auth-success { font-family:'Share Tech Mono',monospace; font-size:0.75rem; color:var(--safe); text-align:center; margin-top:0.75rem; }
+    .auth-pending { font-family:'Share Tech Mono',monospace; font-size:0.75rem; color:var(--amber); text-align:center; margin-top:0.75rem; }
+
+    /* Role selector */
+    .role-selector { display:flex; border:1px solid var(--border); border-radius:4px; margin-bottom:1.5rem; overflow:hidden; }
+    .role-btn { flex:1; background:transparent; border:none; padding:10px; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.85rem; letter-spacing:0.1em; color:var(--t3); cursor:pointer; transition:all 0.2s; }
+    .role-btn + .role-btn { border-left:1px solid var(--border); }
+    .role-btn.active { background:var(--cyan-dim); color:var(--cyan); }
     </style>
 </head>
 <body>
@@ -49,6 +57,11 @@
         <div class="auth-panel">
             <div class="auth-decrypt-line">[ ████ ] IDENTITY VERIFICATION PROTOCOL</div>
 
+            <div class="role-selector" id="role-selector">
+                <button type="button" class="role-btn active" data-role="admin">ADMINISTRATOR</button>
+                <button type="button" class="role-btn" data-role="worker">WORKER</button>
+            </div>
+
             <div class="auth-tabs">
                 <button class="auth-tab active" data-tab="login">LOGIN</button>
                 <button class="auth-tab" data-tab="register">REGISTER</button>
@@ -56,17 +69,19 @@
             </div>
 
             <form class="auth-form" id="tab-login" onsubmit="handleLogin(event)">
-                <div class="float-field"><input type="email" id="email" required placeholder=" " autocomplete="off"><label for="email">EMAIL ADDRESS</label></div>
+                <div class="float-field"><input type="email" id="email" required placeholder=" " autocomplete="off"><label for="email">EMAIL ADDRESS (@gmail.com)</label></div>
                 <div class="float-field"><input type="password" id="password" required placeholder=" "><label for="password">ACCESS CODE</label></div>
-                <button type="submit" class="auth-btn">AUTHENTICATE</button>
+                <button type="submit" class="auth-btn" id="login-btn">AUTHENTICATE</button>
                 <div class="auth-error hidden" id="login-error"></div>
+                <div class="auth-pending hidden" id="login-pending"></div>
             </form>
 
             <form class="auth-form hidden" id="tab-register" onsubmit="handleRegister(event)">
                 <div class="float-field"><input type="text" id="reg-name" required placeholder=" "><label for="reg-name">OPERATOR NAME</label></div>
-                <div class="float-field"><input type="email" id="reg-email" required placeholder=" "><label for="reg-email">EMAIL ADDRESS</label></div>
+                <div class="float-field"><input type="email" id="reg-email" required placeholder=" "><label for="reg-email">EMAIL ADDRESS (@gmail.com)</label></div>
                 <div class="float-field"><input type="password" id="reg-pass" required placeholder=" "><label for="reg-pass">SET ACCESS CODE</label></div>
-                <button type="submit" class="auth-btn">CREATE OPERATOR ACCOUNT</button>
+                <div class="float-field"><input type="text" id="reg-factory" required placeholder=" " autocomplete="off"><label for="reg-factory" id="factory-label">CHOOSE FACTORY ID</label></div>
+                <button type="submit" class="auth-btn" id="reg-btn">CREATE ACCOUNT</button>
                 <div class="auth-error hidden" id="reg-error"></div>
                 <div class="auth-success hidden" id="reg-success"></div>
             </form>
@@ -83,6 +98,30 @@
 
     <script src="forge.js" defer></script>
     <script>
+    let selectedRole = 'admin';
+
+    // Role switching
+    document.querySelectorAll('.role-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.querySelectorAll('.role-btn').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = 'transparent';
+                b.style.color = 'var(--t3)';
+            });
+            btn.classList.add('active');
+            btn.style.background = 'var(--cyan-dim)';
+            btn.style.color = 'var(--cyan)';
+            selectedRole = btn.dataset.role;
+
+            // Update Factory ID label based on role
+            const factoryLabel = document.getElementById('factory-label');
+            if (factoryLabel) {
+                factoryLabel.textContent = selectedRole === 'admin' ? 'CHOOSE FACTORY ID' : 'ENTER YOUR FACTORY ID';
+            }
+        });
+    });
+
     // Tab switching
     document.querySelectorAll('.auth-tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -93,20 +132,44 @@
         });
     });
 
+    // Gmail-only client-side validation
+    function isGmail(email) {
+        return email.toLowerCase().endsWith('@gmail.com');
+    }
+
     async function handleLogin(e) {
         e.preventDefault();
         const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
         const errEl = document.getElementById('login-error');
+        const pendEl = document.getElementById('login-pending');
         errEl.classList.add('hidden');
+        pendEl.classList.add('hidden');
+
+        if (!isGmail(email)) {
+            errEl.textContent = 'Only @gmail.com addresses are accepted.';
+            errEl.classList.remove('hidden');
+            return;
+        }
+
         try {
             const res = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password}) });
             const data = await res.json();
             if (data.success) {
+                // Role comes from DB now — no client-side override
                 sessionStorage.setItem('user', JSON.stringify(data.user));
                 sessionStorage.setItem('mode', 'production');
                 window.location.href = 'dashboard.html';
-            } else { errEl.textContent = data.message || 'Authentication failed'; errEl.classList.remove('hidden'); }
+            } else {
+                // Differentiate pending/rejected from generic errors
+                if (res.status === 403) {
+                    pendEl.textContent = data.message;
+                    pendEl.classList.remove('hidden');
+                } else {
+                    errEl.textContent = data.message || 'Authentication failed';
+                    errEl.classList.remove('hidden');
+                }
+            }
         } catch(err) { errEl.textContent = 'Connection error — check server status'; errEl.classList.remove('hidden'); }
     }
 
@@ -115,6 +178,7 @@
         const name = document.getElementById('reg-name').value.trim();
         const email = document.getElementById('reg-email').value.trim();
         const password = document.getElementById('reg-pass').value;
+        const factory_id = document.getElementById('reg-factory').value.trim();
         const errEl = document.getElementById('reg-error');
         const sucEl = document.getElementById('reg-success');
         errEl.classList.add('hidden'); sucEl.classList.add('hidden');
@@ -127,14 +191,46 @@
             return;
         }
 
+        // Gmail-only check
+        if (!isGmail(email)) {
+            errEl.textContent = 'ERROR: Only @gmail.com email addresses are accepted.';
+            errEl.classList.remove('hidden');
+            return;
+        }
+
+        // Factory ID check
+        if (!factory_id) {
+            errEl.textContent = 'ERROR: Factory ID is required.';
+            errEl.classList.remove('hidden');
+            return;
+        }
+
+        const regBtn = document.getElementById('reg-btn');
+        regBtn.disabled = true;
+        regBtn.textContent = 'PROCESSING...';
+
         try {
-            const res = await fetch('/api/auth/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name,email,password}) });
+            const res = await fetch('/api/auth/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name, email, password, role: selectedRole, factory_id }) });
             const data = await res.json();
             if (data.success) {
-                sucEl.textContent = '✓ Account created! Switching to login...'; sucEl.classList.remove('hidden');
-                setTimeout(() => { document.querySelector('[data-tab="login"]').click(); document.getElementById('email').value = email; }, 1500);
-            } else { errEl.textContent = data.message || 'Registration failed'; errEl.classList.remove('hidden'); }
-        } catch(err) { errEl.textContent = 'Connection error — check server status'; errEl.classList.remove('hidden'); }
+                sucEl.textContent = data.message;
+                sucEl.classList.remove('hidden');
+                if (selectedRole === 'admin') {
+                    // Admin is immediately active — auto-switch to login
+                    setTimeout(() => { document.querySelector('[data-tab="login"]').click(); document.getElementById('email').value = email; }, 2000);
+                }
+                // For worker, just show the pending message — no redirect
+            } else {
+                errEl.textContent = data.message || 'Registration failed';
+                errEl.classList.remove('hidden');
+            }
+        } catch(err) {
+            errEl.textContent = 'Connection error — check server status';
+            errEl.classList.remove('hidden');
+        } finally {
+            regBtn.disabled = false;
+            regBtn.textContent = 'CREATE ACCOUNT';
+        }
     }
 
     async function enterSimulation() {
@@ -142,6 +238,7 @@
             const res = await fetch('/api/auth/simulation', { method:'POST' });
             const data = await res.json();
             if (data.success) {
+                data.user.role = selectedRole === 'worker' ? 'Worker' : 'Admin';
                 sessionStorage.setItem('user', JSON.stringify(data.user));
                 sessionStorage.setItem('mode', 'simulation');
                 window.location.href = 'dashboard.html';
